@@ -25,11 +25,10 @@ jobs:
               wget -O build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
               
               export BLENDER_DOWNLOAD_TIMEOUT=600
-              for i in 1 2 3; do
+              for i in 1 2; do
                 echo "make deps attempt $i"
                 make deps && break || sleep 30
               done
-
       - name: Configure CMake
         run: |
           cd blender
@@ -40,19 +39,14 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DCMAKE_BUILD_TYPE=Release \
-            
             -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF -DWITH_CYCLES_HIP=OFF -DWITH_CYCLES_METAL=OFF \
             -DWITH_OPENIMAGEDENOISE=OFF \
-            
             -DWITH_XR_OPENXR=OFF \
             -DWITH_CODEC_FFMPEG=ON \
-            
             -DWITH_USD=OFF -DWITH_OPENCOLLADA=OFF -DWITH_ALEMBIC=OFF \
             -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
-            
             -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF \
             -DWITH_LIBS_PRECOMPILED=ON
-
       - name: Build
         run: |
           cd blender/build
