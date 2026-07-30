@@ -5,14 +5,14 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - name: Install build deps + cross toolchain
+      - name: Install build deps
         run: |
           sudo apt update
           sudo apt install -y git cmake build-essential ninja-build wget
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
           sudo apt install -y autoconf automake bison libtool yasm tcl meson python3-mako patchelf
 
-      - name: Get Blender Source shallow
+      - name: BBlender source
         run: |
           git clone --depth 1 -b v3.6.23 https://github.com/blender/blender.git
           cd blender
@@ -47,10 +47,10 @@ jobs:
             -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
             -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF \
             -DWITH_LIBS_PRECOMPILED=ON
-      - name: Build
-        run: |
-          cd blender/build
-          ninja -j$(nproc)
+          - name: Build
+            run: |
+              cd blender/build
+              ninja -j$(nproc)
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
