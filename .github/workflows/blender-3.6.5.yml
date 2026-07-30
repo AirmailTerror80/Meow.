@@ -12,23 +12,19 @@ jobs:
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
           sudo apt install -y autoconf automake bison libtool yasm tcl meson python3-mako patchelf
 
-      - name: BBlender source
+      - name: Blender source
         run: |
           git clone --depth 1 -b v3.6.23 https://github.com/blender/blender.git
           cd blender
           git submodule update --init --depth 1 --recursive
 
-          - name: Download and build prebuilt deps for aarch64
-            run: |
-              cd blender
-              mkdir -p build_linux/deps/packages
-              wget -O build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
-              
-              export BLENDER_DOWNLOAD_TIMEOUT=600
-              for i in 1 2; do
-                echo "make deps attempt $i"
-                make deps && break || sleep 30
-              done
+      - name: Download and build prebuilt deps for aarch64
+        run: |
+          cd blender
+          mkdir -p build_linux/deps/packages
+          wget -O build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
+          make deps
+
       - name: Configure CMake
         run: |
           cd blender
@@ -47,6 +43,7 @@ jobs:
             -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
             -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF \
             -DWITH_LIBS_PRECOMPILED=ON
+
       - name: Build
         run: |
           cd blender/build
@@ -55,4 +52,6 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: blender
+          name: blender-3.6.23-aarch64
+          path: blender/build/bin/blender
+          retention-days: 30
