@@ -26,7 +26,7 @@ jobs:
           
           wget -O build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
           
-          sed -i 's|ftp://ftp.freedesktop.org/pub/mesa/glu/|https://archive.mesa3d.org/glu/|g' build_files/build_environment/cmake/download.cmake
+          sed -i 's|ftp://ftp.freedesktop.org/pub/mesa/glu/|https://archive.mesa3d.org/glu/|g' build_files/**/**/**/download.cmake
           
           export BLENDER_DOWNLOAD_TIMEOUT=600
           make deps -j$(nproc)
