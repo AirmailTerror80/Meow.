@@ -1,34 +1,24 @@
-name: Blender 3.6.5 aarch64
+name: Build Blender 3.6.5 aarch64
 on: [workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-24.04
-    env:
-      CCACHE_DIR: ~/.ccache
-      CCACHE_MAXSIZE: 5G
     steps:
-      - name: Install deps cross and toolchain
+      - name: Install build deps
         run: |
           sudo apt update
-          sudo apt install -y git cmake build-essential ccache ninja-build wget
+          sudo apt install -y git cmake build-essential ninja-build wget
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt install -y autoconf automake bison libtool yasm tcl meson python3-mako patchelf
 
-      - name: Setup ccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: blender-3.6.5-aarch64-${{ github.run_id }}
-          restore-keys: |
-            blender-3.6.5-aarch64-
-
-      - name: Blender Source shallow
+      - name: Blender Source
         run: |
           git clone --depth 1 -b v3.6.5 https://github.com/blender/blender.git
           cd blender
           git submodule update --init --depth 1 --recursive
 
-      - name: Download prebuilt deps for aarch64
+      - name: Download and build prebuilt deps for aarch64
         run: |
           cd blender
           make deps
@@ -51,9 +41,7 @@ jobs:
       - name: Build
         run: |
           cd blender/build
-          ccache -z
           ninja -j$(nproc)
-          ccache -s
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
