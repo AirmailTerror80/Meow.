@@ -1,21 +1,31 @@
-name: Build Blender 3.6.5 aarch64
+name: Build Blender 3.6.23 aarch64 lean
 on: [workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - name: Install cross toolchain
+      - name: Install build deps + cross toolchain
         run: |
           sudo apt update
-          sudo apt install -y cmake build-essential ninja-build wget
+          sudo apt install -y git cmake build-essential ninja-build wget
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt install -y autoconf automake bison libtool yasm tcl meson python3-mako patchelf
 
-      - name: Download Blender with libs 3.6.0
+      - name: Get Blender Source shallow
         run: |
-          wget https://ftp.nluug.nl/pub/graphics/blender/source/blender-with-libraries-3.6.0.tar.xz
-          tar -xf blender-with-libraries-3.6.0.tar.xz
-          mv blender-3.6.0 blender
+          git clone --depth 1 -b v3.6.23 https://github.com/blender/blender.git
+          cd blender
+          git submodule update --init --depth 1 --recursive
+
+      - name: Download and build prebuilt deps for aarch64
+        run: |
+          cd blender
+          export BLENDER_DOWNLOAD_TIMEOUT=600
+          for i in 1 2 3 4; do
+            echo "make deps attempt $i"
+            make deps && break || sleep 30
+          done
 
       - name: Configure CMake
         run: |
@@ -27,12 +37,18 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH=../lib/linux_aarch64 \
-            -DWITH_LIBS_PRECOMPILED=ON \
-            -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF \
-            -DWITH_OPENCOLLADA=OFF \
-            -DWITH_POTRACE=OFF \
-            -DWITH_OPENJPEG=OFF
+            
+            -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF -DWITH_CYCLES_HIP=OFF -DWITH_CYCLES_METAL=OFF \
+            -DWITH_OPENIMAGEDENOISE=OFF \
+            
+            -DWITH_XR_OPENXR=OFF \
+            -DWITH_CODEC_FFMPEG=ON \  # keep this for video output
+            
+            -DWITH_USD=OFF -DWITH_OPENCOLLADA=OFF -DWITH_ALEMBIC=OFF \
+            -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
+            
+            -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF \
+            -DWITH_LIBS_PRECOMPILED=ON
 
       - name: Build
         run: |
@@ -42,6 +58,4 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: blender-3.6.0-aarch64
-          path: blender/build/bin/blender
-          retention-days: 30
+          name: blender
