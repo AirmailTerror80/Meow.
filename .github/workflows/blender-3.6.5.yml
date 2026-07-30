@@ -1,4 +1,4 @@
-name: Build Blender 3.6.23 aarch64 lean
+name: Blender 3.6.23 aarch64
 on: [workflow_dispatch]
 
 jobs:
@@ -18,14 +18,17 @@ jobs:
           cd blender
           git submodule update --init --depth 1 --recursive
 
-      - name: Download and build prebuilt deps for aarch64
-        run: |
-          cd blender
-          export BLENDER_DOWNLOAD_TIMEOUT=600
-          for i in 1 2 3 4; do
-            echo "make deps attempt $i"
-            make deps && break || sleep 30
-          done
+          - name: Download and build prebuilt deps for aarch64
+            run: |
+              cd blender
+              mkdir -p build_linux/deps/packages
+              wget -O build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
+              
+              export BLENDER_DOWNLOAD_TIMEOUT=600
+              for i in 1 2 3; do
+                echo "make deps attempt $i"
+                make deps && break || sleep 30
+              done
 
       - name: Configure CMake
         run: |
@@ -42,7 +45,7 @@ jobs:
             -DWITH_OPENIMAGEDENOISE=OFF \
             
             -DWITH_XR_OPENXR=OFF \
-            -DWITH_CODEC_FFMPEG=ON \  # keep this for video output
+            -DWITH_CODEC_FFMPEG=ON \
             
             -DWITH_USD=OFF -DWITH_OPENCOLLADA=OFF -DWITH_ALEMBIC=OFF \
             -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
