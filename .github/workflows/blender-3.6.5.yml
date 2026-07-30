@@ -3,7 +3,7 @@ on: [workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Install build deps
         run: |
@@ -23,7 +23,12 @@ jobs:
           cd blender
           mkdir -p build_linux/deps/packages
           wget -O build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
-          make deps
+          
+          export BLENDER_DOWNLOAD_TIMEOUT=600
+          for i in 1 2; do
+            echo "make deps attempt $i"
+            make deps && break || sleep 30
+          done
 
       - name: Configure CMake
         run: |
