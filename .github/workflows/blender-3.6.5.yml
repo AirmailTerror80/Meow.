@@ -18,10 +18,13 @@ jobs:
           cd blender
           git submodule update --init --depth 1 --recursive
 
-      - name: Download and build prebuilt deps for aarch64
+      - name: Download prebuilt deps aarch64
         run: |
           cd blender
-          make deps
+          mkdir -p build_linux/deps
+          wget -O deps.tar.xz https://ftp.nluug.nl/pub/graphics/blender.org/blender/source/lib/linux_aarch64/lib-linux_aarch64_glibc_2_31_x86_64-cmake-3.21.3.tar.xz
+          tar -xf deps.tar.xz -C build_linux/deps --strip-components=1
+          rm deps.tar.xz
 
       - name: Configure CMake
         run: |
@@ -33,6 +36,7 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=../build_linux/deps \
             -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF \
             -DWITH_OPENVDB=ON -DWITH_OPENCOLLADA=OFF \
             -DWITH_AUDASPACE=ON \
