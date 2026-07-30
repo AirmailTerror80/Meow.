@@ -4,18 +4,15 @@ on: [workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      CCACHE_DIR: ~/.ccache
+      CCACHE_MAXSIZE: 5G
     steps:
-      - name: Install deps and cross toolchain
+      - name: Install deps cross and toolchain
         run: |
           sudo apt update
-          sudo apt install -y git cmake build-essential ccache ninja-build
+          sudo apt install -y git cmake build-essential ccache ninja-build wget
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          sudo apt install -y libx11-dev:arm64 libxxf86vm-dev:arm64 libxcursor-dev:arm64 \
-          libxi-dev:arm64 libxrandr-dev:arm64 libxinerama-dev:arm64 libglew-dev:arm64 \
-          libpng-dev:arm64 libjpeg-dev:arm64 libopenexr-dev:arm64 libopenimageio-dev:arm64 \
-          libopencolorio-dev:arm64 libfftw3-dev:arm64 libsndfile1-dev:arm64 libopenal-dev:arm64 \
-          libtbb-dev:arm64 libembree-dev:arm64 libopenvdb-dev:arm64 libboost-all-dev:arm64 \
-          python3-dev:arm64
 
       - name: Setup ccache
         uses: actions/cache@v4
@@ -25,11 +22,16 @@ jobs:
           restore-keys: |
             blender-3.6.5-aarch64-
 
-      - name: Get Blender Source
+      - name: Blender Source shallow
         run: |
-          git clone -b v3.6.5 https://github.com/blender/blender.git
+          git clone --depth 1 -b v3.6.5 https://github.com/blender/blender.git
           cd blender
-          git submodule update --init --recursive
+          git submodule update --init --depth 1 --recursive
+
+      - name: Download prebuilt deps for aarch64
+        run: |
+          cd blender
+          make deps
 
       - name: Configure CMake
         run: |
@@ -43,7 +45,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF \
             -DWITH_OPENVDB=ON -DWITH_OPENCOLLADA=OFF \
-            -DWITH_AUDASPACE=ON
+            -DWITH_AUDASPACE=ON \
+            -DWITH_POTRACE=OFF
 
       - name: Build
         run: |
