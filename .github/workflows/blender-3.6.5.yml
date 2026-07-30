@@ -11,7 +11,6 @@ jobs:
           sudo apt install -y git cmake build-essential ninja-build wget
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
           sudo apt install -y autoconf automake bison libtool yasm tcl meson python3-mako patchelf
-          sudo apt install -y libjpeg-dev:arm64 libpng-dev:arm64 zlib1g-dev:arm64
 
       - name: Blender source
         run: |
