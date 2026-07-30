@@ -1,54 +1,83 @@
 name: Blender 3.6.23 aarch64 system-deps
-on: [workflow_dispatch]
+
+on:
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
+
     steps:
-      - name: Enable multiarch and install system deps
+      - name: Install host tooling
         run: |
-          sudo dpkg --add-architecture arm64
-          sudo add-apt-repository universe -y
           sudo apt update
-          sudo apt install -y git cmake build-essential ninja-build wget
-          sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          sudo apt install -y libjpeg-dev:arm64 libpng-dev:arm64 zlib1g-dev:arm64 libopenjpeg-dev:arm64 libtiff-dev:arm64
-          sudo apt install -y libfreetype-dev:arm64 libopenexr-dev:arm64 libboost-dev:arm64 libfftw3-dev:arm64
-          sudo apt install -y libsqlite3-dev:arm64 liblzma-dev:arm64 libbz2-dev:arm64 libzstd-dev:arm64
-          sudo apt install -y libpython3-dev:arm64 libxi-dev:arm64 libx11-dev:arm64 libxxf86vm-dev:arm64
-          sudo apt install -y libxcursor-dev:arm64 libxinerama-dev:arm64 libxrandr-dev:arm64 libglew-dev:arm64
-          sudo apt install -y libavcodec-dev:arm64 libavformat-dev:arm64 libavutil-dev:arm64 libswscale-dev:arm64 libswresample-dev:arm64
+          sudo apt install -y \
+            git cmake ninja-build build-essential wget python3 python3-pip pkg-config \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            qemu-user-static binfmt-support \
+            debootstrap rsync
+
+      - name: Create arm64 sysroot
+        run: |
+          sudo mkdir -p /opt/sysroot-arm64
+          sudo debootstrap --arch=arm64 --foreign noble /opt/sysroot-arm64 http://ports.ubuntu.com/
+          sudo cp /usr/bin/qemu-aarch64-static /opt/sysroot-arm64/usr/bin/
+          sudo chroot /opt/sysroot-arm64 /debootstrap/debootstrap --second-stage
+
+          sudo chroot /opt/sysroot-arm64 apt-get update
+          sudo chroot /opt/sysroot-arm64 apt-get install -y \
+            build-essential cmake ninja-build pkg-config \
+            libjpeg-dev libpng-dev zlib1g-dev libopenjpeg-dev libtiff-dev \
+            libfreetype-dev libopenexr-dev libboost-dev libfftw3-dev \
+            libsqlite3-dev liblzma-dev libbz2-dev libzstd-dev \
+            libpython3-dev libxi-dev libx11-dev libxxf86vm-dev \
+            libxcursor-dev libxinerama-dev libxrandr-dev libglew-dev \
+            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev
 
       - name: Blender source
         run: |
           git clone --depth 1 -b blender-v3.6-release https://github.com/blender/blender.git
           cd blender
-          git submodule update --init --depth 1 --recursive
+          git submodule update --init --recursive --depth 1
           git clone --depth 1 https://projects.blender.org/blender/blender-addons.git scripts/addons
 
       - name: Configure CMake
         run: |
           cd blender
-          mkdir build && cd build
+          mkdir -p build
+          cd build
           cmake .. -G Ninja \
-            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF -DWITH_CYCLES_HIP=OFF -DWITH_CYCLES_METAL=OFF \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_FIND_ROOT_PATH=/opt/sysroot-arm64 \
+            -DCMAKE_SYSROOT=/opt/sysroot-arm64 \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+            -DWITH_CYCLES_CUDA=OFF \
+            -DWITH_CYCLES_OPTIX=OFF \
+            -DWITH_CYCLES_HIP=OFF \
+            -DWITH_CYCLES_METAL=OFF \
             -DWITH_OPENIMAGEDENOISE=OFF \
             -DWITH_XR_OPENXR=OFF \
             -DWITH_CODEC_FFMPEG=ON \
-            -DWITH_USD=OFF -DWITH_OPENCOLLADA=OFF -DWITH_ALEMBIC=OFF \
-            -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
-            -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF \
+            -DWITH_USD=OFF \
+            -DWITH_OPENCOLLADA=OFF \
+            -DWITH_ALEMBIC=OFF \
+            -DWITH_OPENSUBDIV=OFF \
+            -DWITH_OPENVDB=OFF \
+            -DWITH_POTRACE=OFF \
+            -DWITH_JACK=OFF \
+            -DWITH_PULSEAUDIO=OFF \
             -DWITH_LIBS_PRECOMPILED=OFF
 
       - name: Build
         run: |
           cd blender/build
-          ninja -j$(nproc)
+          ninja -j"$(nproc)"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
