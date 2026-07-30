@@ -3,7 +3,7 @@ on: [workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Install build deps
         run: |
@@ -14,7 +14,7 @@ jobs:
 
       - name: Blender source
         run: |
-          git clone --depth 1 -b v3.6.23 https://github.com/blender/blender.git
+          git clone --depth 1 -b blender-v3.6-release https://github.com/blender/blender.git
           cd blender
           git submodule update --init --depth 1 --recursive
           git clone --depth 1 https://projects.blender.org/blender/blender-addons.git scripts/addons
@@ -26,7 +26,7 @@ jobs:
           
           wget -O build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
           
-          sed -i 's|ftp://ftp.freedesktop.org/pub/mesa/glu/|https://archive.mesa3d.org/glu/|g' cmake/download.cmake
+          sed -i 's|ftp://ftp.freedesktop.org/pub/mesa/glu/|https://archive.mesa3d.org/glu/|g' build_files/build_environment/cmake/download.cmake
           
           export BLENDER_DOWNLOAD_TIMEOUT=600
           make deps -j$(nproc)
