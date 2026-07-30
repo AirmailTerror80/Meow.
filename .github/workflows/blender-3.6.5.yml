@@ -1,16 +1,23 @@
-name: Blender 3.6.23 aarch64
+name: Blender 3.6.23 aarch64 system-deps
 on: [workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
-      - name: Install build deps
+      - name: Enable multiarch and install system deps
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt update
           sudo apt install -y git cmake build-essential ninja-build wget
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          sudo apt install -y autoconf automake bison libtool yasm tcl meson python3-mako patchelf
+          sudo apt install -y libjpeg-dev:arm64 libpng-dev:arm64 zlib1g-dev:arm64 libopenjpeg-dev:arm64 libtiff-dev:arm64
+          sudo apt install -y libfreetype-dev:arm64 libopenexr-dev:arm64 libboost-dev:arm64 libfftw3-dev:arm64
+          sudo apt install -y libsqlite3-dev:arm64 liblzma-dev:arm64 libbz2-dev:arm64 libzstd-dev:arm64
+          sudo apt install -y libpython3-dev:arm64 libxi-dev:arm64 libx11-dev:arm64 libxxf86vm-dev:arm64
+          sudo apt install -y libxcursor-dev:arm64 libxinerama-dev:arm64 libxrandr-dev:arm64 libglew-dev:arm64
+          # ffmpeg is the big one
+          sudo apt install -y libavcodec-dev:arm64 libavformat-dev:arm64 libavutil-dev:arm64 libswscale-dev:arm64 libswresample-dev:arm64
 
       - name: Blender source
         run: |
@@ -18,18 +25,6 @@ jobs:
           cd blender
           git submodule update --init --depth 1 --recursive
           git clone --depth 1 https://projects.blender.org/blender/blender-addons.git scripts/addons
-
-      - name: Patch download URLs and build deps
-        run: |
-          cd blender
-          mkdir -p build_linux/deps/packages
-          
-          wget -O build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
-          
-          sed -i 's|ftp://ftp.freedesktop.org/pub/mesa/glu/|https://archive.mesa3d.org/glu/|g' build_files/**/**/**/download.cmake
-          
-          export BLENDER_DOWNLOAD_TIMEOUT=600
-          make deps -j$(nproc)
 
       - name: Configure CMake
         run: |
@@ -48,7 +43,7 @@ jobs:
             -DWITH_USD=OFF -DWITH_OPENCOLLADA=OFF -DWITH_ALEMBIC=OFF \
             -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
             -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF \
-            -DWITH_LIBS_PRECOMPILED=ON
+            -DWITH_LIBS_PRECOMPILED=OFF
 
       - name: Build
         run: |
@@ -60,4 +55,4 @@ jobs:
         with:
           name: blender-3.6.23-aarch64
           path: blender/build/bin/blender
-          retention-days: 20
+          retention-days: 10
