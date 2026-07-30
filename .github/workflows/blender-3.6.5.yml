@@ -5,26 +5,17 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - name: Install build deps
+      - name: Install cross toolchain
         run: |
           sudo apt update
-          sudo apt install -y git cmake build-essential ninja-build wget
+          sudo apt install -y cmake build-essential ninja-build wget
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          sudo apt install -y autoconf automake bison libtool yasm tcl meson python3-mako patchelf
 
-      - name: Blender Source
+      - name: Download Blender with libs 3.6.0
         run: |
-          git clone --depth 1 -b v3.6.5 https://github.com/blender/blender.git
-          cd blender
-          git submodule update --init --depth 1 --recursive
-
-      - name: Download prebuilt deps aarch64
-        run: |
-          cd blender
-          mkdir -p build_linux/deps
-          wget -O deps.tar.xz https://ftp.nluug.nl/pub/graphics/blender.org/blender/source/lib/linux_aarch64/lib-linux_aarch64_glibc_2_31_x86_64-cmake-3.21.3.tar.xz
-          tar -xf deps.tar.xz -C build_linux/deps --strip-components=1
-          rm deps.tar.xz
+          wget https://ftp.nluug.nl/pub/graphics/blender/source/blender-with-libraries-3.6.0.tar.xz
+          tar -xf blender-with-libraries-3.6.0.tar.xz
+          mv blender-3.6.0 blender
 
       - name: Configure CMake
         run: |
@@ -36,10 +27,8 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH=../build_linux/deps \
             -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF \
-            -DWITH_OPENVDB=ON -DWITH_OPENCOLLADA=OFF \
-            -DWITH_AUDASPACE=ON \
+            -DWITH_OPENCOLLADA=OFF \
             -DWITH_POTRACE=OFF
 
       - name: Build
@@ -50,6 +39,6 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: blender-3.6.5-aarch64
+          name: blender-3.6.0-aarch64
           path: blender/build/bin/blender
           retention-days: 30
