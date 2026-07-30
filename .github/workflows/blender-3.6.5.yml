@@ -3,7 +3,7 @@ on: [workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Install build deps
         run: |
@@ -19,12 +19,14 @@ jobs:
           git submodule update --init --depth 1 --recursive
           git clone --depth 1 https://projects.blender.org/blender/blender-addons.git scripts/addons
 
-      - name: Download and build prebuilt deps for aarch64
+      - name: Patch download URLs and build deps
         run: |
           cd blender
           mkdir -p build_linux/deps/packages
+          
           wget -O build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
-          touch build_linux/deps/packages/glu-9.0.1.tar.xz.done
+          
+          sed -i 's|ftp://ftp.freedesktop.org/pub/mesa/glu/|https://archive.mesa3d.org/glu/|g' cmake/download.cmake
           
           export BLENDER_DOWNLOAD_TIMEOUT=600
           make deps -j$(nproc)
