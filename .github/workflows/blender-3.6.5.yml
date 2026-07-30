@@ -27,9 +27,12 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=../lib/linux_aarch64 \
+            -DWITH_LIBS_PRECOMPILED=ON \
             -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF \
             -DWITH_OPENCOLLADA=OFF \
-            -DWITH_POTRACE=OFF
+            -DWITH_POTRACE=OFF \
+            -DWITH_OPENJPEG=OFF
 
       - name: Build
         run: |
