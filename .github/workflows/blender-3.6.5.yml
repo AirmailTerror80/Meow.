@@ -1,0 +1,60 @@
+name: Blender 3.6.5 aarch64
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install deps and cross toolchain
+        run: |
+          sudo apt update
+          sudo apt install -y git cmake build-essential ccache ninja-build
+          sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt install -y libx11-dev:arm64 libxxf86vm-dev:arm64 libxcursor-dev:arm64 \
+          libxi-dev:arm64 libxrandr-dev:arm64 libxinerama-dev:arm64 libglew-dev:arm64 \
+          libpng-dev:arm64 libjpeg-dev:arm64 libopenexr-dev:arm64 libopenimageio-dev:arm64 \
+          libopencolorio-dev:arm64 libfftw3-dev:arm64 libsndfile1-dev:arm64 libopenal-dev:arm64 \
+          libtbb-dev:arm64 libembree-dev:arm64 libopenvdb-dev:arm64 libboost-all-dev:arm64 \
+          python3-dev:arm64
+
+      - name: Setup ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: blender-3.6.5-aarch64-${{ github.run_id }}
+          restore-keys: |
+            blender-3.6.5-aarch64-
+
+      - name: Get Blender Source
+        run: |
+          git clone -b v3.6.5 https://github.com/blender/blender.git
+          cd blender
+          git submodule update --init --recursive
+
+      - name: Configure CMake
+        run: |
+          cd blender
+          mkdir build && cd build
+          cmake .. -G Ninja \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF \
+            -DWITH_OPENVDB=ON -DWITH_OPENCOLLADA=OFF \
+            -DWITH_AUDASPACE=ON
+
+      - name: Build
+        run: |
+          cd blender/build
+          ccache -z
+          ninja -j$(nproc)
+          ccache -s
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender-3.6.5-aarch64
+          path: blender/build/bin/blender
+          retention-days: 30
