@@ -8,6 +8,7 @@ jobs:
       - name: Enable multiarch and install system deps
         run: |
           sudo dpkg --add-architecture arm64
+          sudo add-apt-repository universe -y
           sudo apt update
           sudo apt install -y git cmake build-essential ninja-build wget
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
@@ -16,7 +17,6 @@ jobs:
           sudo apt install -y libsqlite3-dev:arm64 liblzma-dev:arm64 libbz2-dev:arm64 libzstd-dev:arm64
           sudo apt install -y libpython3-dev:arm64 libxi-dev:arm64 libx11-dev:arm64 libxxf86vm-dev:arm64
           sudo apt install -y libxcursor-dev:arm64 libxinerama-dev:arm64 libxrandr-dev:arm64 libglew-dev:arm64
-          # ffmpeg is the big one
           sudo apt install -y libavcodec-dev:arm64 libavformat-dev:arm64 libavutil-dev:arm64 libswscale-dev:arm64 libswresample-dev:arm64
 
       - name: Blender source
