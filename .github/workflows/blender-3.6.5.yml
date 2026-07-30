@@ -47,10 +47,10 @@ jobs:
             -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
             -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF \
             -DWITH_LIBS_PRECOMPILED=ON
-          - name: Build
-            run: |
-              cd blender/build
-              ninja -j$(nproc)
+      - name: Build
+        run: |
+          cd blender/build
+          ninja -j$(nproc)
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
