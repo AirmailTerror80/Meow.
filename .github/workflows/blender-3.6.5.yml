@@ -30,7 +30,7 @@ jobs:
           
           wget -q -O ../build_linux/deps/packages/mesa-21.1.5.tar.xz https://archive.mesa3d.org/older-versions/21.x/mesa-21.1.5.tar.xz
           wget -q -O ../build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
-          wget -q -0 ../build_linux/deps/packages/gmp-6.2.1.tar.xz https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz
+          wget -q -O ../build_linux/deps/packages/gmp-6.2.1.tar.xz https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz
 
       - name: Build dependencies for aarch64
         run: |
