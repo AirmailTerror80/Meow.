@@ -8,26 +8,26 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build in aarch64 emulator
-        uses: uraimo/run-on-arch-action@v2
-        id: build
-        with:
-          arch: aarch64
-          distro: ubuntu24.04
-          
-          env: |
-            BLENDER_BRANCH: ${{ env.BLENDER_BRANCH }}
-            BLENDER_VERSION: ${{ env.BLENDER_VERSION }}
+      - name: Setup qemu
+        uses: docker/setup-qemu-action@v3
 
-          install: |
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get update
-            apt-get install -y sudo git wget curl build-essential cmake ninja-build subversion \
+      - name: Arm64 ubuntu container
+        run: |
+          docker run --rm --platform linux/arm64 \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            -e BLENDER_BRANCH="${BLENDER_BRANCH}" \
+            -e BLENDER_VERSION="${BLENDER_VERSION}" \
+            ubuntu:22.04 bash -c "
+              set -e
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y git wget curl build-essential cmake ninja-build subversion \
                 libasound2-dev libopenal-dev libpulse-dev libjack-jackd2-dev \
                 libx11-dev libxext-dev libxi-dev libxrandr-dev libxfixes-dev \
                 libxxf86vm-dev libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev \
@@ -40,37 +40,43 @@ jobs:
                 libsndfile1-dev libjemalloc-dev libcairo2-dev libglfw3-dev \
                 libboost-all-dev wayland-protocols libwayland-dev libxkbcommon-dev python3-dev
 
-          run: |
-            echo "Architecture: $(uname -m)"
-            
-            git clone --depth 1 -b "${BLENDER_BRANCH}" https://github.com/blender/blender.git blender
-            cd blender
-            git submodule update --init --recursive --depth 1
-            git clone --depth 1 https://projects.blender.org/blender/blender-addons.git scripts/addons
+              echo 'Cloning blender'
+              git clone --depth 1 -b \"\${BLENDER_BRANCH}\" https://github.com/blender/blender.git blender
+              cd blender
+              git submodule update --init --recursive --depth 1
+              git clone --depth 1 https://projects.blender.org/blender/blender-addons.git scripts/addons
 
-            export BLENDER_DOWNLOAD_TIMEOUT=600
-            make deps -j$(nproc)
+              echo 'Building Dldependencies'
+              mkdir -p ../build_linux/deps/packages
+              
+              wget -q -O ../build_linux/deps/packages/mesa-21.1.5.tar.xz https://archive.mesa3d.org/older-versions/21.x/mesa-21.1.5.tar.xz
+              wget -q -O ../build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
+              
+              wget -q -O ../build_linux/deps/packages/gmp-6.2.1.tar.xz https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz
+              
+              export BLENDER_DOWNLOAD_TIMEOUT=600
+              make deps -j\$(nproc)
 
-            mkdir -p build
-            cd build
-            
-            cmake .. -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DWITH_LIBS_PRECOMPILED=OFF \
-              -DLIBDIR=../lib/linux_aarch64 \
-              -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF \
-              -DWITH_CYCLES_HIP=OFF -DWITH_CYCLES_METAL=OFF \
-              -DWITH_OPENIMAGEDENOISE=OFF -DWITH_XR_OPENXR=OFF \
-              -DWITH_USD=OFF -DWITH_OPENCOLLADA=OFF -DWITH_ALEMBIC=OFF \
-              -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
-              -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF \
-              -DWITH_CODEC_FFMPEG=ON -DWITH_INSTALL_PORTABLE=ON
+              echo 'Configuring cmake'
+              mkdir -p build && cd build
+              cmake .. -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DWITH_LIBS_PRECOMPILED=OFF \
+                -DLIBDIR=../lib/linux_aarch64 \
+                -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF \
+                -DWITH_CYCLES_HIP=OFF -DWITH_CYCLES_METAL=OFF \
+                -DWITH_OPENIMAGEDENOISE=OFF -DWITH_XR_OPENXR=OFF \
+                -DWITH_USD=OFF -DWITH_OPENCOLLADA=OFF -DWITH_ALEMBIC=OFF \
+                -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
+                -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF \
+                -DWITH_CODEC_FFMPEG=ON -DWITH_INSTALL_PORTABLE=ON
 
-            ninja -j$(nproc)
-            
-            ninja install
-            
-            cp -r bin /github/workspace/blender-portable
+              echo 'Building blender'
+              ninja -j\$(nproc)
+              ninja install
+
+              cp -r bin /workspace/blender-portable
+            "
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
