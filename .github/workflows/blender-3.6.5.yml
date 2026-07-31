@@ -1,47 +1,43 @@
-name: Blender 3.6.23 aarch64 system-deps
+name: Blender 3.6.23 aarch64 cross-build
+on: [workflow_dispatch]
 
-on:
-  workflow_dispatch:
+env:
+  BLENDER_BRANCH: blender-v3.6-release
+  BLENDER_VERSION: 3.6.23
 
 jobs:
   build:
     runs-on: ubuntu-24.04
-
     steps:
-      - name: Install host tooling
+      - name: Install host tools
         run: |
           sudo apt update
-          sudo apt install -y \
-            git cmake ninja-build build-essential wget python3 python3-pip pkg-config \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            qemu-user-static binfmt-support \
-            debootstrap rsync
-
-      - name: Create arm64 sysroot
-        run: |
-          sudo mkdir -p /opt/sysroot-arm64
-          sudo debootstrap --arch=arm64 --foreign noble /opt/sysroot-arm64 http://ports.ubuntu.com/
-          sudo cp /usr/bin/qemu-aarch64-static /opt/sysroot-arm64/usr/bin/
-          sudo chroot /opt/sysroot-arm64 /debootstrap/debootstrap --second-stage
-
-          sudo chroot /opt/sysroot-arm64 apt-get update
-          sudo chroot /opt/sysroot-arm64 apt-get install -y \
-            build-essential cmake ninja-build pkg-config \
-            libjpeg-dev libpng-dev zlib1g-dev libopenjpeg-dev libtiff-dev \
-            libfreetype-dev libopenexr-dev libboost-dev libfftw3-dev \
-            libsqlite3-dev liblzma-dev libbz2-dev libzstd-dev \
-            libpython3-dev libxi-dev libx11-dev libxxf86vm-dev \
-            libxcursor-dev libxinerama-dev libxrandr-dev libglew-dev \
-            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev
+          sudo apt install -y git cmake ninja-build build-essential wget curl xz-utils \
+          python3 python3-pip pkg-config autoconf automake bison libtool yasm tcl meson \
+          gcc-aarch64-linux-gnu g++-aarch64-linux-gnu patchelf
 
       - name: Blender source
         run: |
-          git clone --depth 1 -b blender-v3.6-release https://github.com/blender/blender.git
+          git clone --depth 1 -b "${BLENDER_BRANCH}" https://github.com/blender/blender.git blender
           cd blender
           git submodule update --init --recursive --depth 1
           git clone --depth 1 https://projects.blender.org/blender/blender-addons.git scripts/addons
 
-      - name: Configure CMake
+      - name: Pre-download broken deps
+        run: |
+          cd blender
+          mkdir -p build_linux/deps/packages
+          
+          wget -q -O build_linux/deps/packages/mesa-21.1.5.tar.xz https://archive.mesa3d.org/older-versions/21.x/mesa-21.1.5.tar.xz
+          wget -q -O build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
+
+      - name: Build dependencies for aarch64
+        run: |
+          cd blender
+          export BLENDER_DOWNLOAD_TIMEOUT=600
+          make deps -j$(nproc)
+
+      - name: Configure
         run: |
           cd blender
           mkdir -p build
@@ -52,34 +48,20 @@ jobs:
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
             -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-            -DCMAKE_FIND_ROOT_PATH=/opt/sysroot-arm64 \
-            -DCMAKE_SYSROOT=/opt/sysroot-arm64 \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-            -DWITH_CYCLES_CUDA=OFF \
-            -DWITH_CYCLES_OPTIX=OFF \
-            -DWITH_CYCLES_HIP=OFF \
-            -DWITH_CYCLES_METAL=OFF \
-            -DWITH_OPENIMAGEDENOISE=OFF \
-            -DWITH_XR_OPENXR=OFF \
-            -DWITH_CODEC_FFMPEG=ON \
-            -DWITH_USD=OFF \
-            -DWITH_OPENCOLLADA=OFF \
-            -DWITH_ALEMBIC=OFF \
-            -DWITH_OPENSUBDIV=OFF \
-            -DWITH_OPENVDB=OFF \
-            -DWITH_POTRACE=OFF \
-            -DWITH_JACK=OFF \
-            -DWITH_PULSEAUDIO=OFF \
-            -DWITH_LIBS_PRECOMPILED=OFF
+            -DWITH_LIBS_PRECOMPILED=ON \
+            -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF -DWITH_CYCLES_HIP=OFF -DWITH_CYCLES_METAL=OFF \
+            -DWITH_OPENIMAGEDENOISE=OFF -DWITH_XR_OPENXR=OFF \
+            -DWITH_USD=OFF -DWITH_OPENCOLLADA=OFF -DWITH_ALEMBIC=OFF \
+            -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
+            -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF \
+            -DWITH_CODEC_FFMPEG=ON
 
       - name: Build
         run: |
           cd blender/build
           ninja -j"$(nproc)"
 
-      - name: Upload Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: blender-3.6.23-aarch64
