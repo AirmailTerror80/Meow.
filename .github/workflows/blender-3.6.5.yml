@@ -1,4 +1,4 @@
-name: Blender 3.6.23 aarch64 cross-build
+name: Blender 3.6.23 aarch64
 on: [workflow_dispatch]
 
 env:
@@ -7,12 +7,14 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm64
+    
     steps:
-      - name: Install host tools
+      - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential cmake ninja-build \
+          # Install build tools and libraries natively for arm64
+          sudo apt install -y build-essential cmake ninja-build subversion \
               libasound2-dev libopenal-dev libpulse-dev libjack-jackd2-dev \
               libx11-dev libxext-dev libxi-dev libxrandr-dev libxfixes-dev \
               libxxf86vm-dev libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev \
@@ -23,57 +25,48 @@ jobs:
               zlib1g-dev libzstd-dev liblzma-dev libbz2-dev \
               libssl-dev libfreetype6-dev libfontconfig1-dev \
               libsndfile1-dev libjemalloc-dev libcairo2-dev libglfw3-dev \
-              libboost-all-dev
+              libboost-all-dev wayland-protocols libwayland-dev libxkbcommon-dev
 
-      - name: Blender source
+      - name: Checkout Blender source
         run: |
           git clone --depth 1 -b "${BLENDER_BRANCH}" https://github.com/blender/blender.git blender
           cd blender
           git submodule update --init --recursive --depth 1
           git clone --depth 1 https://projects.blender.org/blender/blender-addons.git scripts/addons
 
-      - name: Pre-download broken deps
+      - name: Build dependencies natively (aarch64)
         run: |
           cd blender
-          mkdir -p ../build_linux/deps/packages
-          
-          wget -q -O ../build_linux/deps/packages/mesa-21.1.5.tar.xz https://archive.mesa3d.org/older-versions/21.x/mesa-21.1.5.tar.xz
-          wget -q -O ../build_linux/deps/packages/glu-9.0.1.tar.xz https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz
-          wget -q -O ../build_linux/deps/packages/gmp-6.2.1.tar.xz https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz
-
-      - name: Build dependencies for aarch64
-        run: |
-          cd blender
-          export BLENDER_DOWNLOAD_TIMEOUT=600
           make deps -j$(nproc)
 
-      - name: Configure
+      - name: Configure CMake
         run: |
           cd blender
           mkdir -p build
           cd build
+          
           cmake .. -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-            -DWITH_LIBS_PRECOMPILED=ON \
-            -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF -DWITH_CYCLES_HIP=OFF -DWITH_CYCLES_METAL=OFF \
+            -DWITH_LIBS_PRECOMPILED=OFF \
+            -DLIBDIR=../lib/linux_aarch64 \
+            -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF \
+            -DWITH_CYCLES_HIP=OFF -DWITH_CYCLES_METAL=OFF \
             -DWITH_OPENIMAGEDENOISE=OFF -DWITH_XR_OPENXR=OFF \
             -DWITH_USD=OFF -DWITH_OPENCOLLADA=OFF -DWITH_ALEMBIC=OFF \
             -DWITH_OPENSUBDIV=OFF -DWITH_OPENVDB=OFF \
             -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF \
-            -DWITH_CODEC_FFMPEG=ON
+            -DWITH_CODEC_FFMPEG=ON -DWITH_INSTALL_PORTABLE=ON
 
-      - name: Build
+      - name: Compile Blender
         run: |
           cd blender/build
           ninja -j"$(nproc)"
+          # Run the install target to package the binary + scripts into a clean folder
+          ninja install
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: blender-3.6.23-aarch64
-          path: blender/build/bin/blender
+          path: blender/build/
           retention-days: 10
