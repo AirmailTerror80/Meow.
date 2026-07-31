@@ -28,17 +28,17 @@ jobs:
               export DEBIAN_FRONTEND=noninteractive
               apt-get update
               apt-get install -y git wget curl build-essential cmake ninja-build subversion \
-                libasound2-dev libopenal-dev libpulse-dev libjack-jackd2-dev \
-                libx11-dev libxext-dev libxi-dev libxrandr-dev libxfixes-dev \
-                libxxf86vm-dev libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev \
-                libglew-dev libjpeg-dev libpng-dev libtiff-dev libopenexr-dev \
-                libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
-                libavfilter-dev libavdevice-dev libavresample-dev \
-                libfftw3-dev libgmp-dev libopenblas-dev libtbb-dev \
-                zlib1g-dev libzstd-dev liblzma-dev libbz2-dev \
-                libssl-dev libfreetype6-dev libfontconfig1-dev \
-                libsndfile1-dev libjemalloc-dev libcairo2-dev libglfw3-dev \
-                libboost-all-dev wayland-protocols libwayland-dev libxkbcommon-dev python3-dev
+              libasound2-dev libopenal-dev libpulse-dev libjack-jackd2-dev \
+              libx11-dev libxext-dev libxi-dev libxrandr-dev libxfixes-dev \
+              libxxf86vm-dev libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev \
+              libglew-dev libjpeg-dev libpng-dev libtiff-dev libopenexr-dev \
+              libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+              libavfilter-dev libavdevice-dev libswresample-dev \
+              libfftw3-dev libgmp-dev libopenblas-dev libtbb-dev \
+              zlib1g-dev libzstd-dev liblzma-dev libbz2-dev \
+              libssl-dev libfreetype6-dev libfontconfig1-dev \
+              libsndfile1-dev libjemalloc-dev libcairo2-dev libglfw3-dev \
+              libboost-all-dev wayland-protocols libwayland-dev libxkbcommon-dev python3-dev
 
               echo 'Cloning blender'
               git clone --depth 1 -b \"\${BLENDER_BRANCH}\" https://github.com/blender/blender.git blender
