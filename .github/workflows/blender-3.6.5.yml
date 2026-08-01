@@ -15,22 +15,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Host Cross-Toolchain & QEMU Emulation
+      - name: Install Host Cross-Toolchain & Host Tools
         run: |
           sudo apt update
           sudo apt install -y build-essential cmake ninja-build \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu pkg-config curl \
-            qemu-user-static binfmt-support
+            qemu-user-static binfmt-support libwayland-bin
 
       - name: Fetch and Extract ARM64 Sysroot
         run: |
-          echo "Creating sysroot target directory"
+          echo "Creating sysroot target directory..."
           sudo mkdir -p /opt/sysroot
 
-          echo "Downloading sysroot tarball"
+          echo "Downloading sysroot tarball..."
           curl -sSL -o sysroot.tar.gz "${SYSROOT_URL}"
 
-          echo "Extracting Gzip sysroot"
+          echo "Extracting Gzip sysroot..."
           sudo tar -xzf sysroot.tar.gz -C /opt/sysroot
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -62,6 +62,7 @@ jobs:
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
             -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
             -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY \
+            -DWAYLAND_SCANNER_EXECUTABLE=/usr/bin/wayland-scanner \
             -DWITH_LIBS_PRECOMPILED=OFF \
             -DWITH_INSTALL_PORTABLE=ON \
             -DWITH_TESTS=OFF \
@@ -106,5 +107,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: blender-3.6.23-aarch64
-          path: blender/build/
+          path: blender/build/bin/
           retention-days: 10
