@@ -15,12 +15,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Host Cross-Toolchain & QEMU Emulation
+      - name: Install Host tools
         run: |
           sudo apt update
-          sudo apt install -y build-essential cmake ninja-build \
+          sudo apt install -y --no-install-recommends \
+            build-essential cmake ninja-build ccache \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu pkg-config curl \
             qemu-user-static binfmt-support
+
+      - name: Setup Compiler Cache (ccache)
+        uses: hendrikmuhs/ccache-action@v3
+        with:
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+          max-size: 2G
 
       - name: Fetch and Extract ARM64 Sysroot
         run: |
@@ -32,8 +41,6 @@ jobs:
 
           echo "Extracting Gzip sysroot"
           sudo tar -xzf sysroot.tar.gz -C /opt/sysroot
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout Blender Source
         run: |
@@ -42,21 +49,24 @@ jobs:
           git submodule update --init --recursive --depth 1
           git clone --depth 1 https://projects.blender.org/blender/blender-addons.git scripts/addons
 
-      - name: Configure CMake
+      - name: Patch Codebase for FFmpeg 7.0
         run: |
           cd blender
           
           sed -i 's/AV_INPUT_BUFFER_MIN_SIZE/16384/g' source/blender/blenkernel/intern/writeffmpeg.c
-  
+
           sed -i 's/m_codecCtx->channels/m_codecCtx->ch_layout.nb_channels/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
           sed -i 's/codecpar->channels/codecpar->ch_layout.nb_channels/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
           sed -i 's/AV_INPUT_BUFFER_MIN_SIZE/16384/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
-  
+
           sed -i 's/m_frame->channel_layout = m_codecCtx->channel_layout;/av_channel_layout_copy(\&m_frame->ch_layout, \&m_codecCtx->ch_layout);/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
           sed -i 's/m_frame->channels = m_specs.channels;/m_frame->ch_layout.nb_channels = m_specs.channels;/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
           sed -i 's/m_codecCtx->channel_layout = channel_layout;/av_channel_layout_from_mask(\&m_codecCtx->ch_layout, channel_layout);/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
           sed -i 's/m_codecCtx->channels = m_specs.channels;/m_codecCtx->ch_layout.nb_channels = m_specs.channels;/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
-          
+
+      - name: Configure CMake
+        run: |
+          cd blender
           mkdir -p build && cd build
 
           export PKG_CONFIG_SYSROOT_DIR=/opt/sysroot
@@ -69,6 +79,8 @@ jobs:
             -DCMAKE_SYSROOT=/opt/sysroot \
             -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
             -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_FIND_ROOT_PATH="/opt/sysroot" \
             -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
