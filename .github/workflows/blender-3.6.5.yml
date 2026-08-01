@@ -23,12 +23,12 @@ jobs:
             -w /workspace \
             -e BLENDER_BRANCH="${BLENDER_BRANCH}" \
             -e BLENDER_VERSION="${BLENDER_VERSION}" \
-            ubuntu:22.04 bash -c "
+            ubuntu:latest bash -c "
               set -e
               export DEBIAN_FRONTEND=noninteractive
               apt-get update
-              apt-get install -y git wget curl build-essential cmake ninja-build subversion \
-              autoconf automake bison libtool yasm tcl ninja-build meson python3-mako patchelf \
+              apt-get install -y git wget curl build-essential cmake ninja-build subversion pkg-config \
+              autoconf automake bison libtool yasm tcl meson python3-mako patchelf \
               libasound2-dev libopenal-dev libpulse-dev libjack-jackd2-dev \
               libx11-dev libxext-dev libxi-dev libxrandr-dev libxfixes-dev \
               libxxf86vm-dev libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev \
@@ -36,7 +36,7 @@ jobs:
               libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
               libavfilter-dev libavdevice-dev libswresample-dev \
               libfftw3-dev libgmp-dev libopenblas-dev libtbb-dev \
-              zlib1g-dev libzstd-dev liblzma-dev libbz2-dev \
+              zlib1g-dev libzstd-dev liblzma-dev libbz2-dev libbrotli-dev \
               libssl-dev libfreetype6-dev libfontconfig1-dev \
               libsndfile1-dev libjemalloc-dev libcairo2-dev libglfw3-dev \
               libboost-all-dev wayland-protocols libwayland-dev libxkbcommon-dev python3-dev
