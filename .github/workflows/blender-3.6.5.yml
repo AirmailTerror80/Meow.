@@ -1,14 +1,14 @@
-name: Blender 3.6.23 ARM64 Mobile Sysroot Build
+name: Blender 3.6.23 Build
 on: [workflow_dispatch]
 
 env:
   BLENDER_BRANCH: blender-v3.6-release
   BLENDER_VERSION: 3.6.23
-  SYSROOT_URL: "https://github.com/AirmailTerror80/Meow./releases/download/arm64-sysroot/arm64-sysroot.tar.gz"
+  SYSROOT_URL: "https://github.com/AirmailTerror80/Meow./releases/download/arm64-sysroot/arm64-sysroot-26.04.tar.zst"  # <-- new file
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -60,37 +60,12 @@ jobs:
             -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY \
             -DWITH_LIBS_PRECOMPILED=OFF \
             -DWITH_INSTALL_PORTABLE=ON \
-            \
-            -DWITH_OPENMP=ON \
-            -DWITH_TBB=ON \
-            -DWITH_SYSTEM_TBB=ON \
-            \
-            -DWITH_CYCLES=ON \
-            -DWITH_MOD_FLUID=ON \
-            -DWITH_CODEC_FFMPEG=ON \
-            -DWITH_PYTHON=ON \
-            \
-            -DWITH_CYCLES_CUDA=OFF \
-            -DWITH_CYCLES_OPTIX=OFF \
-            -DWITH_CYCLES_HIP=OFF \
-            -DWITH_CYCLES_HIP_BINARIES=OFF \
-            -DWITH_CYCLES_METAL=OFF \
-            -DWITH_CYCLES_ONEAPI=OFF \
-            -DWITH_CYCLES_EMBREE=OFF \
-            -DWITH_CYCLES_PATH_GUIDING=OFF \
-            -DWITH_OPENIMAGEDENOISE=OFF \
-            \
-            -DWITH_USD=OFF \
-            -DWITH_OPENVDB=OFF \
-            -DWITH_OPENCOLLADA=OFF \
-            -DWITH_ALEMBIC=OFF \
-            -DWITH_OPENSUBDIV=OFF \
-            -DWITH_XR_OPENXR=OFF \
-            -DWITH_INPUT_NDOF=OFF \
-            -DWITH_POTRACE=OFF \
-            -DWITH_JACK=OFF \
-            -DWITH_PULSEAUDIO=OFF \
-            -DWITH_DOC_MANPAGE=OFF
+            -DWITH_OPENMP=ON -DWITH_TBB=ON -DWITH_SYSTEM_TBB=ON \
+            -DWITH_CYCLES=ON -DWITH_MOD_FLUID=ON -DWITH_CODEC_FFMPEG=ON -DWITH_PYTHON=ON \
+            -DWITH_CYCLES_CUDA=OFF -DWITH_CYCLES_OPTIX=OFF -DWITH_CYCLES_HIP=OFF \
+            -DWITH_USD=OFF -DWITH_OPENVDB=OFF -DWITH_OPENCOLLADA=OFF -DWITH_ALEMBIC=OFF \
+            -DWITH_OPENSUBDIV=OFF -DWITH_XR_OPENXR=OFF -DWITH_INPUT_NDOF=OFF \
+            -DWITH_POTRACE=OFF -DWITH_JACK=OFF -DWITH_PULSEAUDIO=OFF -DWITH_DOC_MANPAGE=OFF
 
       - name: Build & Package Blender
         run: |
@@ -101,6 +76,6 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: blender-3.6.23-aarch64-mobile
+          name: blender-3.6.23
           path: blender/build
           retention-days: 10
