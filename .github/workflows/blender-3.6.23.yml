@@ -24,7 +24,7 @@ jobs:
             qemu-user-static binfmt-support
 
       - name: Setup Compiler Cache (ccache)
-        uses: hendrikmuhs/ccache-action@v3
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ runner.os }}-ccache-${{ github.sha }}
           restore-keys: |
