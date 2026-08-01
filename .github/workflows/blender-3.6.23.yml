@@ -68,6 +68,9 @@ jobs:
           sed -i 's/m_frame->channels = m_specs.channels;/m_frame->ch_layout.nb_channels = m_specs.channels;/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
           sed -i 's/m_codecCtx->channel_layout = channel_layout;/av_channel_layout_from_mask(\&m_codecCtx->ch_layout, channel_layout);/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
           sed -i 's/m_codecCtx->channels = m_specs.channels;/m_codecCtx->ch_layout.nb_channels = m_specs.channels;/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
+          
+          sed -i 's/in_frame->pkt_pos/0/g' source/blender/imbuf/intern/indexer.cc
+          sed -i 's/in_frame->pkt_duration/in_frame->duration/g' source/blender/imbuf/intern/indexer.cc
 
       - name: Configure CMake
         run: |
