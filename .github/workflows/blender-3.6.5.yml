@@ -5,6 +5,7 @@ env:
   BLENDER_BRANCH: blender-v3.6-release
   BLENDER_VERSION: 3.6.23
   SYSROOT_URL: "https://github.com/AirmailTerror80/Meow./releases/download/arm64-sysroot/arm64-sysroot.tar.gz"
+  QEMU_LD_PREFIX: /opt/sysroot
 
 jobs:
   build:
@@ -14,11 +15,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Host Cross-Toolchain
+      - name: Install Host Cross-Toolchain & QEMU Emulation
         run: |
           sudo apt update
           sudo apt install -y build-essential cmake ninja-build \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu pkg-config curl
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu pkg-config curl \
+            qemu-user-static binfmt-support
 
       - name: Fetch and Extract ARM64 Sysroot
         run: |
@@ -28,8 +30,10 @@ jobs:
           echo "Downloading sysroot tarball"
           curl -sSL -o sysroot.tar.gz "${SYSROOT_URL}"
 
-          echo "Extracting gzip sysroot"
+          echo "Extracting Gzip sysroot"
           sudo tar -xzf sysroot.tar.gz -C /opt/sysroot
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout Blender Source
         run: |
@@ -62,6 +66,7 @@ jobs:
             -DWITH_INSTALL_PORTABLE=ON \
             -DWITH_TESTS=OFF \
             -DPYTHON_VERSION=3.14 \
+            -DBoost_NO_BOOST_CMAKE=ON \
             -DWITH_OPENMP=ON \
             -DWITH_TBB=ON \
             -DWITH_SYSTEM_TBB=ON \
