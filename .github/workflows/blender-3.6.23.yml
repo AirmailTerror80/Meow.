@@ -55,6 +55,10 @@ jobs:
           
           sed -i 's/AV_INPUT_BUFFER_MIN_SIZE/16384/g' source/blender/blenkernel/intern/writeffmpeg.c
 
+          sed -i 's/\bpkt_duration\b/duration/g' source/blender/imbuf/intern/anim_movie.cc
+          sed -i 's/pFrame->key_frame/(pFrame->flags \& AV_FRAME_FLAG_KEY)/g' source/blender/imbuf/intern/anim_movie.cc
+          sed -i 's/format_ctx->iformat->read_seek2 || format_ctx->iformat->read_seek/true/g' source/blender/imbuf/intern/anim_movie.cc
+
           sed -i 's/m_codecCtx->channels/m_codecCtx->ch_layout.nb_channels/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
           sed -i 's/codecpar->channels/codecpar->ch_layout.nb_channels/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
           sed -i 's/AV_INPUT_BUFFER_MIN_SIZE/16384/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
