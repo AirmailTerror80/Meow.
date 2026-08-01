@@ -46,10 +46,12 @@ jobs:
         run: |
           cd blender
           
+          sed -i 's/AV_INPUT_BUFFER_MIN_SIZE/16384/g' source/blender/blenkernel/intern/writeffmpeg.c
+  
           sed -i 's/m_codecCtx->channels/m_codecCtx->ch_layout.nb_channels/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
           sed -i 's/codecpar->channels/codecpar->ch_layout.nb_channels/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
           sed -i 's/AV_INPUT_BUFFER_MIN_SIZE/16384/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
-    
+  
           sed -i 's/m_frame->channel_layout = m_codecCtx->channel_layout;/av_channel_layout_copy(\&m_frame->ch_layout, \&m_codecCtx->ch_layout);/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
           sed -i 's/m_frame->channels = m_specs.channels;/m_frame->ch_layout.nb_channels = m_specs.channels;/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
           sed -i 's/m_codecCtx->channel_layout = channel_layout;/av_channel_layout_from_mask(\&m_codecCtx->ch_layout, channel_layout);/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
