@@ -24,13 +24,10 @@ jobs:
             qemu-user-static binfmt-support
 
       - name: Setup Compiler Cache (ccache)
-        uses: hendrikmuhs/ccache-action@v1.2.0
+        uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-ccache-blender-3.6.23-aarch64
-          restore-keys: |
-            ${{ runner.os }}-ccache-
+          key: ${{ runner.os }}-blender-arm
           max-size: 2G
-          save-on-all-states: true
 
       - name: Fetch and Extract ARM64 Sysroot
         run: |
