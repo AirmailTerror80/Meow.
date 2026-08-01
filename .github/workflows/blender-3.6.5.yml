@@ -4,7 +4,7 @@ on: [workflow_dispatch]
 env:
   BLENDER_BRANCH: blender-v3.6-release
   BLENDER_VERSION: 3.6.23
-  SYSROOT_URL: "https://github.com/AirmailTerror80/Meow./releases/download/arm64-sysroot/arm64-sysroot-26.04.tar.gz"
+  SYSROOT_URL: "https://github.com/AirmailTerror80/Meow./releases/download/arm64-sysroot/arm64-sysroot.tar.gz"
 
 jobs:
   build:
