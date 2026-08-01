@@ -72,6 +72,23 @@ jobs:
           sed -i 's/in_frame->pkt_pos/0/g' source/blender/imbuf/intern/indexer.cc
           sed -i 's/in_frame->pkt_duration/in_frame->duration/g' source/blender/imbuf/intern/indexer.cc
 
+      - name: Patch OCIO 2.3+ Compatibility
+        run: |
+          cd blender
+          FILE="source/blender/compositor/realtime_compositor/cached_resources/intern/ocio_color_space_conversion_shader.cc"
+          
+          sed -i 's/VectorFloatGetter &get_data) override/VectorFloatGetter \&get_data, unsigned int) override/g' $FILE
+          sed -i 's/VectorIntGetter &get_data) override/VectorIntGetter \&get_data, unsigned int) override/g' $FILE
+          
+          sed -i 's/void addTexture(const char \*texture_name/unsigned addTexture(const char \*texture_name/g' $FILE
+          sed -i 's/void add3DTexture(const char \*texture_name/unsigned add3DTexture(const char \*texture_name/g' $FILE
+          
+          sed -i 's/samplers_.add(sampler_name, texture);/samplers_.add(sampler_name, texture); return 0;/g' $FILE
+          
+          sed -i 's/const char \*pixel_body) override/const char \*pixel_body)/g' $FILE
+          
+          sed -i 's/return shader_creator.get_shader_code();/return (OCIO_VERSION_HEX >= 0x02030000) ? shader_desc->getShaderText() : shader_creator.get_shader_code();/g' $FILE
+
       - name: Configure CMake
         run: |
           cd blender
