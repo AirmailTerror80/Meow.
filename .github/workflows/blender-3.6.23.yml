@@ -222,7 +222,8 @@ jobs:
             -DWITH_POTRACE=OFF \
             -DWITH_JACK=OFF \
             -DWITH_PULSEAUDIO=OFF \
-            -DWITH_DOC_MANPAGE=OFF
+            -DWITH_DOC_MANPAGE=OFF \
+            -DWITH_FREESTYLE=OFF
 
       - name: Build & Package Blender
         run: |
