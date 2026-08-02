@@ -54,6 +54,42 @@ jobs:
           
           sed -i 's/_PyLong_AsInt/PyLong_AsLong/g' source/blender/python/generic/py_capi_utils.h
           sed -i 's/_Py_HashPointer/Py_HashPointer/g' source/blender/python/intern/bpy_app.c
+          
+          python3 -c '
+          import os
+          patch = """
+          #if PY_VERSION_HEX >= 0x030D0000
+          static inline int _PySet_NextEntry(PyObject *set, Py_ssize_t *pos, PyObject **key, Py_hash_t *hash) {
+              PyObject *iter = (PyObject *)*pos;
+              if (!iter) {
+                  iter = PyObject_GetIter(set);
+                  if (!iter) return 0;
+                  *pos = (Py_ssize_t)iter;
+              }
+              PyObject *item = PyIter_Next(iter);
+              if (item) {
+                  *key = item;
+                  if (hash) *hash = 0;
+                  Py_DECREF(item); // Safe: The Set still holds a reference!
+                  return 1;
+              }
+              Py_DECREF(iter);
+              return 0;
+          }
+          #endif
+          """
+          for root, _, files in os.walk("source/blender"):
+              for file in files:
+                  if file.endswith((".c", ".cc", ".cpp", ".h", ".hpp")):
+                      filepath = os.path.join(root, file)
+                      with open(filepath, "r") as f: content = f.read()
+                      if "_PySet_NextEntry" in content and "static inline int _PySet_NextEntry" not in content:
+                          inc_pos = content.rfind("#include")
+                          if inc_pos != -1:
+                              eol = content.find("\n", inc_pos)
+                              content = content[:eol+1] + patch + content[eol+1:]
+                              with open(filepath, "w") as f: f.write(content)
+          '
 
       - name: Patch Codebase for FFmpeg 7.0
         run: |
