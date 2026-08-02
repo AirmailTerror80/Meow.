@@ -69,28 +69,31 @@ jobs:
           sed -i 's/in_frame->pkt_pos/0/g' source/blender/imbuf/intern/indexer.cc
           sed -i 's/in_frame->pkt_duration/in_frame->duration/g' source/blender/imbuf/intern/indexer.cc
 
-      - name: Patch OCIO 2.3+ Compatibility
+      - name: Patch OCIO 2.3+ Compatibility (Python)
         run: |
           cd blender
-          FILE="source/blender/compositor/realtime_compositor/cached_resources/intern/ocio_color_space_conversion_shader.cc"
+          python3 -c '
+          import re
+          path = "source/blender/compositor/realtime_compositor/cached_resources/intern/ocio_color_space_conversion_shader.cc"
+          with open(path, "r") as f: code = f.read()
           
-          # 1. Update addUniform signatures (ignores line breaks before 'override')
-          perl -pi -e 's/VectorFloatGetter \&get_data/VectorFloatGetter \&get_data, unsigned int capacity/g' $FILE
-          perl -pi -e 's/VectorIntGetter \&get_data/VectorIntGetter \&get_data, unsigned int capacity/g' $FILE
+          code = re.sub(r"\boverride\b", "", code)
           
-          # 2. Update texture functions (void -> unsigned int)
-          perl -pi -e 's/void addTexture/unsigned int addTexture/g' $FILE
-          perl -pi -e 's/void add3DTexture/unsigned int add3DTexture/g' $FILE
+          code = re.sub(r"(VectorFloatGetter[^)]*)\)", r"\1, unsigned int capacity)", code)
+          code = re.sub(r"(VectorIntGetter[^)]*)\)", r"\1, unsigned int capacity)", code)
           
-          # 3. Safely inject 'return 0;' at the end of the texture registration calls
-          perl -pi -e 's/(samplers_\.add\([^;]+\);)/$1 return 0;/g' $FILE
+          code = code.replace("void addTexture", "unsigned int addTexture")
+          code = code.replace("void add3DTexture", "unsigned int add3DTexture")
           
-          # 4. Remove 'override' from createShaderText across multiple lines
-          perl -0777 -pi -e 's/(void createShaderText[\s\S]*?\))[\s]*override/$1/g' $FILE
+          lines = code.split("\n")
+          lines[248] = lines[248].replace("}", "return 0; }") # Line 249
+          lines[271] = lines[271].replace("}", "return 0; }") # Line 272
+          code = "\n".join(lines)
           
-          # 5. Extract shader text natively from OCIO 2.3+
-          perl -pi -e 's/return shader_creator\.get_shader_code\(\);/return (OCIO_VERSION_HEX >= 0x02030000) ? shader_desc->getShaderText() : shader_creator.get_shader_code();/g' $FILE
-
+          code = code.replace("return shader_creator.get_shader_code();", "return (OCIO_VERSION_HEX >= 0x02030000) ? shader_desc->getShaderText() : shader_creator.get_shader_code();")
+          
+          with open(path, "w") as f: f.write(code)
+          '
       - name: Configure CMake
         run: |
           cd blender
