@@ -235,5 +235,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: blender-3.6.23-aarch64
-          path: blender/build/bin/
+          path: blender/build
           retention-days: 10
