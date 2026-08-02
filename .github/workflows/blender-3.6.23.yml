@@ -57,6 +57,10 @@ jobs:
           find source/blender/python -type f -name "*.[ch]" -exec sed -i 's/PyWeakref_GET_OBJECT/PyWeakref_GetObject/g' {} +
           find source/blender/python -type f -name "*.[ch]" -exec sed -i 's/_PyObject_LookupAttr/PyObject_GetOptionalAttr/g' {} +
           
+          find source/blender/python -type f -name "*.[ch]" -exec sed -i 's/_Py_GetConfig()->inspect/0/g' {} +
+          
+          find source/blender/python -type f -name "*.c" -exec sed -i '1s/^/#pragma GCC diagnostic ignored "-Wdeprecated-declarations"\n/' {} +
+          
           python3 -c '
           import os
           patch = """
