@@ -19,14 +19,15 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y --no-install-recommends \
-            build-essential cmake ninja-build ccache \
+            build-essential cmake ninja-build ccache clang lld \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu pkg-config curl \
             qemu-user-static binfmt-support
 
       - name: Setup Compiler Cache (ccache)
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-blender-arm
+          key: ${{ runner.os }}-ccache-blender-arm
+          restore-keys: ${{ runner.os }}-ccache-
           max-size: 2G
 
       - name: Fetch and Extract ARM64 Sysroot
@@ -46,6 +47,13 @@ jobs:
           cd blender
           git submodule update --init --recursive --depth 1
           git clone --depth 1 https://projects.blender.org/blender/blender-addons.git scripts/addons
+
+      - name: Patch Codebase for Python 3.14
+        run: |
+          cd blender
+          
+          sed -i 's/_PyLong_AsInt/PyLong_AsLong/g' source/blender/python/generic/py_capi_utils.h
+          sed -i 's/_Py_HashPointer/Py_HashPointer/g' source/blender/python/intern/bpy_app.c
 
       - name: Patch Codebase for FFmpeg 7.0
         run: |
@@ -94,6 +102,7 @@ jobs:
           
           with open(path, "w") as f: f.write(code)
           '
+
       - name: Configure CMake
         run: |
           cd blender
@@ -107,8 +116,10 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DCMAKE_SYSROOT=/opt/sysroot \
-            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
+            -DCMAKE_CXX_COMPILER_TARGET=aarch64-linux-gnu \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_FIND_ROOT_PATH="/opt/sysroot" \
