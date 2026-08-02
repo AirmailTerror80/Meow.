@@ -193,6 +193,7 @@ jobs:
             -DWITH_LIBS_PRECOMPILED=OFF \
             -DWITH_TESTS=OFF \
             -DPYTHON_VERSION=3.14 \
+            -DWITH_PYTHON_INSTALL=OFF \
             \
             -DWITH_GHOST_X11=ON \
             -DWITH_GHOST_WAYLAND=OFF \
@@ -235,5 +236,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: blender-3.6.23-aarch64
-          path: blender/build
+          path: blender/build/bin
           retention-days: 10
