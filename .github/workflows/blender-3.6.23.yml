@@ -74,16 +74,21 @@ jobs:
           cd blender
           FILE="source/blender/compositor/realtime_compositor/cached_resources/intern/ocio_color_space_conversion_shader.cc"
           
-          sed -i 's/VectorFloatGetter &get_data) override/VectorFloatGetter \&get_data, unsigned int) override/g' $FILE
-          sed -i 's/VectorIntGetter &get_data) override/VectorIntGetter \&get_data, unsigned int) override/g' $FILE
+          # 1. Update addUniform signatures (catches both Float and Int overrides safely)
+          sed -i 's/get_data) override/get_data, unsigned int capacity) override/g' $FILE
           
-          sed -i 's/void addTexture(const char \*texture_name/unsigned addTexture(const char \*texture_name/g' $FILE
-          sed -i 's/void add3DTexture(const char \*texture_name/unsigned add3DTexture(const char \*texture_name/g' $FILE
+          # 2. Update texture functions (void -> unsigned int)
+          sed -i 's/void addTexture/unsigned int addTexture/g' $FILE
+          sed -i 's/void add3DTexture/unsigned int add3DTexture/g' $FILE
           
-          sed -i 's/samplers_.add(sampler_name, texture);/samplers_.add(sampler_name, texture); return 0;/g' $FILE
+          # 3. Inject 'return 0;' immediately after the texture vectors append the data
+          sed -i 's/textures_.append(.*);/& return 0;/g' $FILE
+          sed -i 's/textures3d_.append(.*);/& return 0;/g' $FILE
           
-          sed -i 's/const char \*pixel_body) override/const char \*pixel_body)/g' $FILE
+          # 4. Remove 'override' from createShaderText (avoids pointer spacing issues)
+          sed -i 's/pixel_body) override/pixel_body)/g' $FILE
           
+          # 5. Extract shader text natively from OCIO 2.3+
           sed -i 's/return shader_creator.get_shader_code();/return (OCIO_VERSION_HEX >= 0x02030000) ? shader_desc->getShaderText() : shader_creator.get_shader_code();/g' $FILE
 
       - name: Configure CMake
