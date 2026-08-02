@@ -74,22 +74,22 @@ jobs:
           cd blender
           FILE="source/blender/compositor/realtime_compositor/cached_resources/intern/ocio_color_space_conversion_shader.cc"
           
-          # 1. Update addUniform signatures (catches both Float and Int overrides safely)
-          sed -i 's/get_data) override/get_data, unsigned int capacity) override/g' $FILE
+          # 1. Update addUniform signatures (ignores line breaks before 'override')
+          perl -pi -e 's/VectorFloatGetter \&get_data/VectorFloatGetter \&get_data, unsigned int capacity/g' $FILE
+          perl -pi -e 's/VectorIntGetter \&get_data/VectorIntGetter \&get_data, unsigned int capacity/g' $FILE
           
           # 2. Update texture functions (void -> unsigned int)
-          sed -i 's/void addTexture/unsigned int addTexture/g' $FILE
-          sed -i 's/void add3DTexture/unsigned int add3DTexture/g' $FILE
+          perl -pi -e 's/void addTexture/unsigned int addTexture/g' $FILE
+          perl -pi -e 's/void add3DTexture/unsigned int add3DTexture/g' $FILE
           
-          # 3. Inject 'return 0;' immediately after the texture vectors append the data
-          sed -i 's/textures_.append(.*);/& return 0;/g' $FILE
-          sed -i 's/textures3d_.append(.*);/& return 0;/g' $FILE
+          # 3. Safely inject 'return 0;' at the end of the texture registration calls
+          perl -pi -e 's/(samplers_\.add\([^;]+\);)/$1 return 0;/g' $FILE
           
-          # 4. Remove 'override' from createShaderText (avoids pointer spacing issues)
-          sed -i 's/pixel_body) override/pixel_body)/g' $FILE
+          # 4. Remove 'override' from createShaderText across multiple lines
+          perl -0777 -pi -e 's/(void createShaderText[\s\S]*?\))[\s]*override/$1/g' $FILE
           
           # 5. Extract shader text natively from OCIO 2.3+
-          sed -i 's/return shader_creator.get_shader_code();/return (OCIO_VERSION_HEX >= 0x02030000) ? shader_desc->getShaderText() : shader_creator.get_shader_code();/g' $FILE
+          perl -pi -e 's/return shader_creator\.get_shader_code\(\);/return (OCIO_VERSION_HEX >= 0x02030000) ? shader_desc->getShaderText() : shader_creator.get_shader_code();/g' $FILE
 
       - name: Configure CMake
         run: |
