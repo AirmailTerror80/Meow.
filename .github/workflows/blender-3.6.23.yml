@@ -59,7 +59,7 @@ jobs:
           
           find source/blender/python -type f -name "*.[ch]" -exec sed -i 's/_Py_GetConfig()->inspect/0/g' {} +
           
-          find source/blender/python -type f -name "*.c" -exec sed -i '1s/^/#pragma GCC diagnostic ignored "-Wdeprecated-declarations"\n/' {} +
+          find source/blender/python -type f -name "*.c" -exec sed -i '1s/^/#pragma GCC diagnostic ignored "-Wdeprecated-declarations"\n#define _PyUnicode_EqualToASCIIString(a, b) (PyUnicode_CompareWithASCIIString(a, b) == 0)\n/' {} +
           
           python3 -c '
           import os
