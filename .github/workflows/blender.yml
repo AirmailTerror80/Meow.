@@ -17,24 +17,51 @@ jobs:
           path: blender
           submodules: recursive
 
-      - name: Install Toolchain (LLVM sysroot & tools)
+      - name: Install Toolchain (LLVM & base tools)
         run: |
           SUDO=""
           if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
           $SUDO apt-get update
+          
+          # We no longer install the Debian libc6 sysroot here because we will use your custom one
           $SUDO apt-get install -y clang llvm lld cmake git make subversion patch curl tar xz-utils bzip2
           
-          # Install GCC cross toolchain & sysroot (if host is x86_64 GH Runner)
           ARCH=$(uname -m)
           if [ "$ARCH" = "x86_64" ]; then
-            $SUDO apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross linux-libc-dev-arm64-cross \
-            build-essential git git-lfs subversion cmake libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev libegl-dev \
-            libwayland-dev wayland-protocols libxkbcommon-dev libdbus-1-dev linux-libc-dev \
-            autoconf automake bison libtool yasm tcl ninja-build meson python3-mako patchelf
+            $SUDO apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu build-essential git git-lfs subversion \
+            cmake autoconf automake bison libtool yasm tcl ninja-build meson python3-mako patchelf
+          fi
+
+      - name: Fetch and Install Custom Sysroot
+        run: |
+          SUDO=""
+          if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
+          ARCH=$(uname -m)
+          
+          if [ "$ARCH" = "x86_64" ]; then
+            $SUDO mkdir -p /opt/arm64-sysroot
             
-            $SUDO mkdir -p /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu
-            $SUDO ln -snf /usr/aarch64-linux-gnu/lib /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu/lib
-            $SUDO ln -snf /usr/aarch64-linux-gnu/include /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu/include
+            # Dynamically fetch the download URL from the GitHub Release API
+            SYSROOT_URL=$(curl -s "https://api.github.com/repos/AirmailTerror80/Meow./releases/tags/arm64-sysroot" | grep "browser_download_url" | head -n 1 | cut -d '"' -f 4)
+            
+            if [ -z "$SYSROOT_URL" ]; then
+              echo "Error: Could not find sysroot download URL in release!"
+              exit 1
+            fi
+            
+            echo "Downloading sysroot from: $SYSROOT_URL"
+            $SUDO curl -L "$SYSROOT_URL" -o /opt/sysroot_archive
+            
+            echo "Extracting sysroot..."
+            $SUDO tar -xf /opt/sysroot_archive -C /opt/arm64-sysroot
+            
+            # Flatten directory structure if it extracted as a single top-level folder (e.g., /opt/arm64-sysroot/sysroot/usr)
+            if [ -d "/opt/arm64-sysroot/sysroot" ]; then
+              $SUDO cp -r /opt/arm64-sysroot/sysroot/* /opt/arm64-sysroot/
+              $SUDO rm -rf /opt/arm64-sysroot/sysroot
+            fi
+            
+            echo "Custom sysroot successfully mapped to /opt/arm64-sysroot"
           fi
 
       - name: Pre-download Dead FTP Dependencies
@@ -44,7 +71,16 @@ jobs:
           curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
           curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
 
-      - name: Cross-build Standard Dependencies (No Heavy Desktop/VFX features)
+      - name: Patch Source Code for Cross-Compilation
+        run: |
+          # Force OpenSSL to compile for aarch64 instead of guessing the x86_64 host
+          sed -i 's|\./config|\./Configure linux-aarch64|g' blender/build_files/build_environment/cmake/ssl.cmake
+          
+          # Disable strict requirements in OpenAL that may not exist in minimal arm64 sysroots
+          sed -i 's/-DALSOFT_REQUIRE_PULSEAUDIO=ON/-DALSOFT_REQUIRE_PULSEAUDIO=OFF/g' blender/build_files/build_environment/cmake/openal.cmake || true
+          sed -i 's/-DALSOFT_REQUIRE_PIPEWIRE=ON/-DALSOFT_REQUIRE_PIPEWIRE=OFF/g' blender/build_files/build_environment/cmake/openal.cmake || true
+
+      - name: Cross-build Standard Dependencies (No Heavy VFX features)
         run: |
           ARCH=$(uname -m)
           DEPS_FLAGS="-DCMAKE_C_COMPILER=clang \
@@ -61,12 +97,17 @@ jobs:
                       -DBUILD_MATERIALX=OFF"
           
           if [ "$ARCH" = "x86_64" ]; then
+            # Bind pkg-config rigidly to the custom sysroot
+            export PKG_CONFIG_DIR=
+            export PKG_CONFIG_LIBDIR=/opt/arm64-sysroot/usr/lib/pkgconfig:/opt/arm64-sysroot/usr/share/pkgconfig:/opt/arm64-sysroot/usr/lib/aarch64-linux-gnu/pkgconfig
+            export PKG_CONFIG_SYSROOT_DIR=/opt/arm64-sysroot
+            
             DEPS_FLAGS="$DEPS_FLAGS \
                         -DCMAKE_SYSTEM_NAME=Linux \
                         -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
                         -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
                         -DCMAKE_CXX_COMPILER_TARGET=aarch64-linux-gnu \
-                        -DCMAKE_SYSROOT=/usr/aarch64-linux-gnu \
+                        -DCMAKE_SYSROOT=/opt/arm64-sysroot \
                         -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
                         -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
                         -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld"
@@ -76,7 +117,7 @@ jobs:
           cmake ../blender/build_files/build_environment $DEPS_FLAGS
           make -j$(nproc)
 
-      - name: Cross-build Blender (aarch64)
+      - name: Cross-build Blender (aarch64, X11 enabled)
         run: |
           ARCH=$(uname -m)
           CMAKE_FLAGS="-DCMAKE_SYSTEM_NAME=Linux \
@@ -101,11 +142,20 @@ jobs:
                        -DWITH_MATERIALX=OFF"
           
           if [ "$ARCH" = "x86_64" ]; then
+            export PKG_CONFIG_DIR=
+            export PKG_CONFIG_LIBDIR=/opt/arm64-sysroot/usr/lib/pkgconfig:/opt/arm64-sysroot/usr/share/pkgconfig:/opt/arm64-sysroot/usr/lib/aarch64-linux-gnu/pkgconfig
+            export PKG_CONFIG_SYSROOT_DIR=/opt/arm64-sysroot
+            
             CMAKE_FLAGS="$CMAKE_FLAGS \
                          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
                          -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
                          -DCMAKE_CXX_COMPILER_TARGET=aarch64-linux-gnu \
-                         -DCMAKE_SYSROOT=/usr/aarch64-linux-gnu \
+                         -DCMAKE_SYSROOT=/opt/arm64-sysroot \
+                         -DCMAKE_FIND_ROOT_PATH=/opt/arm64-sysroot \
+                         -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+                         -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+                         -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+                         -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY \
                          -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
                          -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
                          -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld"
