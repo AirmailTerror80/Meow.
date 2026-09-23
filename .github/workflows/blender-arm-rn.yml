@@ -1,0 +1,112 @@
+name: Native Build Blender 4.2 LTS (aarch64)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  BLENDER_BRANCH: v4.2.23
+  BLENDER_VERSION: 4.2.23
+
+jobs:
+  build-native:
+    # This automatically invokes GitHub's native ARM64 hardware servers
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout Blender Repository
+        uses: actions/checkout@v4
+        with:
+          repository: blender/blender
+          ref: ${{ env.BLENDER_BRANCH }}
+          path: blender
+          submodules: recursive
+
+      - name: Install Native Build Requirements
+        run: |
+          sudo apt-get update
+          # Install standard development utilities and native GUI libraries directly (No sysroots required!)
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build ccache git subversion \
+            curl xz-utils bzip2 patch autoconf automake bison libtool yasm tcl \
+            meson python3-mako patchelf \
+            libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev \
+            libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev libdbus-1-dev linux-libc-dev
+
+      - name: Setup Compiler Cache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: ${{ runner.os }}-ccache-blender-native-4.2
+          restore-keys: ${{ runner.os }}-ccache-
+          max-size: 2G
+
+      - name: Pre-download Dead FTP Dependencies
+        run: |
+          mkdir -p build_deps/packages
+          # Replace dead Freedesktop/GNU FTP mirror downloads dynamically
+          curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
+          curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
+          curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
+
+      - name: Build Blender Dependencies (Native aarch64)
+        run: |
+          mkdir -p build_deps
+          cd build_deps
+          
+          # Native CMake environment build. Completely eliminates CROSS_COMPILE, sysroots, and target prefixes!
+          cmake ../blender/build_files/build_environment -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DBUILD_OPENVDB=OFF \
+            -DBUILD_EMBREE=OFF \
+            -DBUILD_OSL=OFF \
+            -DBUILD_OIDN=OFF \
+            -DBUILD_USD=OFF \
+            -DBUILD_ALEMBIC=OFF \
+            -DBUILD_MATERIALX=OFF
+            
+          ninja -j$(nproc)
+
+      - name: Build Blender Portable Binary (Native aarch64)
+        run: |
+          mkdir -p build_blender
+          cd build_blender
+          
+          # Notice we locate our freshly built native dependencies purely via ../build_deps/opt
+          cmake ../blender -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_PREFIX_PATH="../build_deps/opt" \
+            -DWITH_INSTALL_PORTABLE=ON \
+            -DWITH_CYCLES=ON \
+            -DWITH_CYCLES_DEVICE_CUDA=OFF \
+            -DWITH_CYCLES_DEVICE_OPTIX=OFF \
+            -DWITH_CYCLES_DEVICE_HIP=OFF \
+            -DWITH_CYCLES_DEVICE_SYCL=OFF \
+            -DWITH_CYCLES_EMBREE=OFF \
+            -DWITH_CYCLES_OSL=OFF \
+            -DWITH_OPENVDB=OFF \
+            -DWITH_NANOVDB=OFF \
+            -DWITH_OPENIMAGEDENOISE=OFF \
+            -DWITH_USD=OFF \
+            -DWITH_ALEMBIC=OFF \
+            -DWITH_MATERIALX=OFF
+            
+          ninja -j$(nproc)
+          ninja install
+
+      - name: Upload Blender Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender-4.2.23-aarch64-app
+          path: build_blender/bin/
+
+      - name: Upload Dependency Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender-4.2.23-aarch64-deps
+          path: |
+            build_deps/*
