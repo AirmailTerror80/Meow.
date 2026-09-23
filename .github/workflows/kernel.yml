@@ -1,0 +1,76 @@
+name: Build Android Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      defconfig:
+        description: 'Target Defconfig'
+        required: true
+        default: 'vendor/bengal-perf_defconfig vendor/xiaomi/fog.config vendor/ksu.config vendor/debugfs.config vendor/cust.config'
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout Kernel Source
+        uses: actions/checkout@v4
+        with:
+          repository: 'AirmailTerror80/kernel_xiaomi_sm6225'
+          ref: 'motregen'
+          fetch-depth: 1
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison build-essential ccache curl flex \
+            git gnupg gperf libelf-dev libncurses5-dev \
+            libssl-dev libxml2 libxml2-utils lzop make ninja-build \
+            python3 rsync zip zlib1g-dev
+      
+      - name: Download Toolchain
+        run: |
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git clang-toolchain
+
+      - name: Configure and Build Kernel
+        run: |
+          export PATH="$(pwd)/clang-toolchain/bin:$PATH"
+          export ARCH=arm64
+          export SUBARCH=arm64
+          
+          mkdir -p out
+
+          cat > arch/arm64/configs/vendor/cust.config << EOF
+          CONFIG_BINFMT_MISC=y
+
+          CONFIG_KCMP=y
+          CONFIG_CHECKPOINT_RESTORE=y
+          EOF
+          
+          make O=out ARCH=arm64 ${{ github.event.inputs.defconfig }}
+
+          make -j$(nproc --all) O=out \
+            ARCH=arm64 \
+            SUBARCH=arm64 \
+            CC=clang \
+            HOSTCC=clang \
+            HOSTCXX=clang++ \
+            LD=ld.lld \
+            AR=llvm-ar \
+            NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump \
+            STRIP=llvm-strip \
+            LLVM=1 \
+            LLVM_IAS=1
+
+      - name: Verify Output Files
+        run: |
+          echo "=== Built Binaries ==="
+          ls -lh out/arch/arm64/boot || true
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-kernel
+          path: |
+            out/arch/arm64/boot/*
