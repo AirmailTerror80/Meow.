@@ -11,7 +11,6 @@ env:
 
 jobs:
   build-native:
-    # This automatically invokes GitHub's native ARM64 hardware servers
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -26,7 +25,6 @@ jobs:
       - name: Install Native Build Requirements
         run: |
           sudo apt-get update
-          # Install standard development utilities and native GUI libraries directly (No sysroots required!)
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build ccache git subversion \
             curl xz-utils bzip2 patch autoconf automake bison libtool yasm tcl \
@@ -41,10 +39,16 @@ jobs:
           restore-keys: ${{ runner.os }}-ccache-
           max-size: 2G
 
+      - name: Fix libtool version mismatch
+        run: |
+          # blender deps ship aclocal.m4 from libtool 2.4.7, runner has 2.4.6
+          find blender -name "aclocal.m4" -delete
+          # force external projects to regen after download
+          echo "AUTORECONF=true" >> $GITHUB_ENV
+
       - name: Pre-download Dead FTP Dependencies
         run: |
           mkdir -p build_deps/packages
-          # Replace dead Freedesktop/GNU FTP mirror downloads dynamically
           curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
           curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
           curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
@@ -54,7 +58,6 @@ jobs:
           mkdir -p build_deps
           cd build_deps
           
-          # Native CMake environment build. Completely eliminates CROSS_COMPILE, sysroots, and target prefixes!
           cmake ../blender/build_files/build_environment -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
@@ -66,6 +69,9 @@ jobs:
             -DBUILD_USD=OFF \
             -DBUILD_ALEMBIC=OFF \
             -DBUILD_MATERIALX=OFF
+          
+          # regenerate any stale autotools that still slipped through
+          find build -name "aclocal.m4" -exec sh -c 'cd $(dirname {}) && autoreconf -fiv || true' \; || true
             
           ninja -j$(nproc)
 
@@ -74,7 +80,6 @@ jobs:
           mkdir -p build_blender
           cd build_blender
           
-          # Notice we locate our freshly built native dependencies purely via ../build_deps/opt
           cmake ../blender -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
