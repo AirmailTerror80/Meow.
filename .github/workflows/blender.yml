@@ -32,12 +32,15 @@ jobs:
             libwayland-dev wayland-protocols libxkbcommon-dev libdbus-1-dev linux-libc-dev \
             autoconf automake bison libtool yasm tcl ninja-build meson python3-mako patchelf
             
-            # FIX: Debian multiarch/cross packages embed host absolute paths in libc.so
-            # By symlinking the duplicated sysroot path to itself, ld.lld correctly locates libc.so.6
             $SUDO mkdir -p /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu
             $SUDO ln -snf /usr/aarch64-linux-gnu/lib /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu/lib
             $SUDO ln -snf /usr/aarch64-linux-gnu/include /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu/include
           fi
+
+      - name: Pre-download Dead FTP Dependencies
+        run: |
+          mkdir -p build_deps/packages
+          curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
 
       - name: Cross-build Standard Dependencies (No Heavy Desktop/VFX features)
         run: |
