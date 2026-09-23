@@ -10,10 +10,14 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout Blender 4.2.23 LTS
         uses: actions/checkout@v4
+        with:
+          repository: blender/blender
+          ref: v4.2.23
+          path: blender
+          submodules: recursive
 
       - name: Install Host tools & GCC Cross-Compiler
         run: |
@@ -40,13 +44,6 @@ jobs:
 
           echo "Extracting Gzip sysroot"
           sudo tar -xzf sysroot.tar.gz -C /opt/sysroot
-
-      - name: Checkout Blender Source
-        run: |
-          # Checkout specific 4.2.23 LTS tag purely to access the build_environment scripts
-          git clone --depth 1 -b "${BLENDER_BRANCH}" https://github.com/blender/blender.git blender
-          cd blender
-          git submodule update --init --recursive --depth 1
 
       - name: Pre-download Dead FTP Dependencies
         run: |
