@@ -31,7 +31,7 @@ jobs:
             build-essential git git-lfs subversion cmake autoconf automake bison libtool yasm tcl ninja-build meson python3-mako patchelf
           fi
 
-      - name: Fetch Custom Sysroot & Merge with GNU Sysroot
+      - name: Fetch Custom Sysroot & Fix Linker Scripts
         run: |
           SUDO=""
           if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
@@ -51,19 +51,25 @@ jobs:
               $SUDO rm -rf /opt/arm64-sysroot/sysroot
             fi
             
-            # FIX: Overlay the custom GUI/X11 libraries INTO the standard aarch64 working sysroot
+            # Overlay the custom GUI/X11 libraries INTO the standard aarch64 working sysroot
             echo "Merging Custom Sysroot into /usr/aarch64-linux-gnu..."
             $SUDO rsync -a /opt/arm64-sysroot/usr/include/ /usr/aarch64-linux-gnu/include/ || true
             if [ -d "/opt/arm64-sysroot/usr/lib/aarch64-linux-gnu" ]; then
               $SUDO rsync -a /opt/arm64-sysroot/usr/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/ || true
             fi
-            # Map standard /usr/lib files (ignoring existing critical libc files so standard sysroot persists)
             $SUDO rsync -a --ignore-existing /opt/arm64-sysroot/usr/lib/ /usr/aarch64-linux-gnu/lib/ || true
+            $SUDO rsync -a --ignore-existing /opt/arm64-sysroot/lib/ /usr/aarch64-linux-gnu/lib/ || true
             
-            # Re-apply the multi-arch path trick to appease the LLVM Linker (ld.lld)
-            $SUDO mkdir -p /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu
-            $SUDO ln -snf /usr/aarch64-linux-gnu/lib /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu/lib
-            $SUDO ln -snf /usr/aarch64-linux-gnu/include /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu/include
+            # FIX: Convert absolute multiarch paths in linker scripts (libc.so) to relative filenames
+            # This perfectly prevents the "cannot find /usr/lib/aarch64-linux-gnu/libc.so.6 inside sysroot" crash
+            echo "Patching cross-sysroot linker scripts..."
+            $SUDO find /usr/aarch64-linux-gnu/lib -name "*.so" -type f -exec grep -l "GROUP" {} + | \
+            xargs -r $SUDO sed -i 's|/usr/lib/aarch64-linux-gnu/||g; s|/lib/aarch64-linux-gnu/||g; s| /usr/lib/| |g; s|(/usr/lib/|(|g; s| /lib/| |g; s|(/lib/|(|g'
+            
+            # Fallback pathing to ensure the linker always maps multiarch directories properly
+            $SUDO mkdir -p /usr/aarch64-linux-gnu/usr/lib
+            $SUDO ln -snf /usr/aarch64-linux-gnu/lib /usr/aarch64-linux-gnu/usr/lib/aarch64-linux-gnu
+            $SUDO ln -snf /usr/aarch64-linux-gnu/lib /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu
           fi
 
       - name: Pre-download Dead FTP Dependencies
@@ -96,12 +102,11 @@ jobs:
                       -DBUILD_MATERIALX=OFF"
           
           if [ "$ARCH" = "x86_64" ]; then
-            # Bind pkg-config rigidly to the unified sysroot
+            # Bind pkg-config strictly to the unified sysroot
             export PKG_CONFIG_DIR=
             export PKG_CONFIG_LIBDIR=/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/aarch64-linux-gnu/share/pkgconfig
             export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
             
-            # Point sysroot back to /usr/aarch64-linux-gnu (which now contains base libs + your custom X11 libs)
             DEPS_FLAGS="$DEPS_FLAGS \
                         -DCMAKE_SYSTEM_NAME=Linux \
                         -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
