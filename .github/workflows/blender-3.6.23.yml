@@ -1,240 +1,99 @@
-name: Blender 3.6.23 Build (X11 Only)
-on: [workflow_dispatch]
+name: Build Blender 3.6.23 LTS (aarch64)
 
-env:
-  BLENDER_BRANCH: blender-v3.6-release
-  BLENDER_VERSION: 3.6.23
-  SYSROOT_URL: "https://github.com/AirmailTerror80/Meow./releases/download/arm64-sysroot/arm64-sysroot.tar.gz"
-  QEMU_LD_PREFIX: /opt/sysroot
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout Blender 3.6.23 LTS
         uses: actions/checkout@v4
-
-      - name: Install Host tools
-        run: |
-          sudo apt update
-          sudo apt install -y --no-install-recommends \
-            build-essential cmake ninja-build ccache \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu pkg-config curl \
-            qemu-user-static binfmt-support
-
-      - name: Setup Compiler Cache (ccache)
-        uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-ccache-blender-arm
-          restore-keys: ${{ runner.os }}-ccache-
-          max-size: 2G
+          repository: blender/blender
+          ref: v3.6.23
+          path: blender
+          submodules: recursive
 
-      - name: Fetch and Extract ARM64 Sysroot
+      - name: Install Toolchain (LLVM sysroot & tools)
         run: |
-          echo "Creating sysroot target directory"
-          sudo mkdir -p /opt/sysroot
+          SUDO=""
+          if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
+          $SUDO apt-get update
+          $SUDO apt-get install -y clang llvm lld cmake git make subversion patch curl tar xz-utils bzip2
+          
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "x86_64" ]; then
+            $SUDO apt-get install -y libc6-dev-arm64-cross linux-libc-dev-arm64-cross
+          fi
 
-          echo "Downloading sysroot tarball"
-          curl -sSL -o sysroot.tar.gz "${SYSROOT_URL}"
-
-          echo "Extracting Gzip sysroot"
-          sudo tar -xzf sysroot.tar.gz -C /opt/sysroot
-
-      - name: Checkout Blender Source
+      - name: Cross-build Standard Dependencies (No Heavy Desktop/VFX features)
         run: |
-          git clone --depth 1 -b "${BLENDER_BRANCH}" https://github.com/blender/blender.git blender
-          cd blender
-          git submodule update --init --recursive --depth 1
-          git clone --depth 1 https://projects.blender.org/blender/blender-addons.git scripts/addons
+          ARCH=$(uname -m)
+          DEPS_FLAGS="-DCMAKE_C_COMPILER=clang \
+                      -DCMAKE_CXX_COMPILER=clang++ \
+                      -DCMAKE_AR=llvm-ar \
+                      -DCMAKE_RANLIB=llvm-ranlib \
+                      -DCMAKE_LINKER=ld.lld \
+                      -DBUILD_OPENVDB=OFF \
+                      -DBUILD_EMBREE=OFF \
+                      -DBUILD_OSL=OFF \
+                      -DBUILD_OIDN=OFF \
+                      -DBUILD_USD=OFF \
+                      -DBUILD_ALEMBIC=OFF \
+                      -DBUILD_MATERIALX=OFF"
+          
+          if [ "$ARCH" = "x86_64" ]; then
+            DEPS_FLAGS="$DEPS_FLAGS \
+                        -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
+                        -DCMAKE_CXX_COMPILER_TARGET=aarch64-linux-gnu \
+                        -DCMAKE_SYSROOT=/usr/aarch64-linux-gnu"
+          fi
+          
+          mkdir -p build_deps && cd build_deps
+          cmake ../blender/build_files/build_environment $DEPS_FLAGS
+          make -j$(nproc)
 
-      - name: Patch Codebase for Python 3.14
+      - name: Cross-build Blender (aarch64)
         run: |
-          cd blender
+          ARCH=$(uname -m)
+          CMAKE_FLAGS="-DCMAKE_SYSTEM_NAME=Linux \
+                       -DCMAKE_C_COMPILER=clang \
+                       -DCMAKE_CXX_COMPILER=clang++ \
+                       -DCMAKE_AR=llvm-ar \
+                       -DCMAKE_RANLIB=llvm-ranlib \
+                       -DCMAKE_LINKER=ld.lld \
+                       -DCMAKE_PREFIX_PATH=../build_deps/opt \
+                       -DWITH_CYCLES=ON \
+                       -DWITH_CYCLES_DEVICE_CUDA=OFF \
+                       -DWITH_CYCLES_DEVICE_OPTIX=OFF \
+                       -DWITH_CYCLES_DEVICE_HIP=OFF \
+                       -DWITH_CYCLES_DEVICE_SYCL=OFF \
+                       -DWITH_CYCLES_EMBREE=OFF \
+                       -DWITH_CYCLES_OSL=OFF \
+                       -DWITH_OPENVDB=OFF \
+                       -DWITH_NANOVDB=OFF \
+                       -DWITH_OPENIMAGEDENOISE=OFF \
+                       -DWITH_USD=OFF \
+                       -DWITH_ALEMBIC=OFF \
+                       -DWITH_MATERIALX=OFF"
           
-          find source/blender/python -type f -name "*.[ch]" -exec sed -i 's/_PyLong_AsInt/PyLong_AsLong/g' {} +
-          find source/blender/python -type f -name "*.[ch]" -exec sed -i 's/_Py_HashPointer/Py_HashPointer/g' {} +
-          find source/blender/python -type f -name "*.[ch]" -exec sed -i 's/PyWeakref_GET_OBJECT/PyWeakref_GetObject/g' {} +
-          find source/blender/python -type f -name "*.[ch]" -exec sed -i 's/_PyObject_LookupAttr/PyObject_GetOptionalAttr/g' {} +
+          if [ "$ARCH" = "x86_64" ]; then
+            CMAKE_FLAGS="$CMAKE_FLAGS \
+                         -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+                         -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
+                         -DCMAKE_CXX_COMPILER_TARGET=aarch64-linux-gnu \
+                         -DCMAKE_SYSROOT=/usr/aarch64-linux-gnu"
+          fi
           
-          find source/blender/python -type f -name "*.[ch]" -exec sed -i 's/_Py_GetConfig()->inspect/0/g' {} +
-          
-          find source/blender/python -type f -name "*.c" -exec sed -i '1s/^/#pragma GCC diagnostic ignored "-Wdeprecated-declarations"\n#define _PyUnicode_EqualToASCIIString(a, b) (PyUnicode_CompareWithASCIIString(a, b) == 0)\n/' {} +
-          
-          python3 -c '
-          import os
-          patch = """
-          #if PY_VERSION_HEX >= 0x030D0000
-          static inline int _PySet_NextEntry(PyObject *set, Py_ssize_t *pos, PyObject **key, Py_hash_t *hash) {
-              PyObject *iter = (PyObject *)*pos;
-              if (!iter) {
-                  iter = PyObject_GetIter(set);
-                  if (!iter) return 0;
-                  *pos = (Py_ssize_t)iter;
-              }
-              PyObject *item = PyIter_Next(iter);
-              if (item) {
-                  *key = item;
-                  if (hash) *hash = 0;
-                  Py_DECREF(item);
-                  return 1;
-              }
-              Py_DECREF(iter);
-              return 0;
-          }
-          #endif
-          """
-          for root, _, files in os.walk("source/blender"):
-              for file in files:
-                  if file.endswith((".c", ".cc", ".cpp", ".h", ".hpp")):
-                      filepath = os.path.join(root, file)
-                      with open(filepath, "r") as f: content = f.read()
-                      if "_PySet_NextEntry" in content and "static inline int _PySet_NextEntry" not in content:
-                          inc_pos = content.rfind("#include")
-                          if inc_pos != -1:
-                              eol = content.find("\n", inc_pos)
-                              content = content[:eol+1] + patch + content[eol+1:]
-                              with open(filepath, "w") as f: f.write(content)
-          '
-          
-          python3 -c '
-          import re
-          path = "source/blender/python/intern/bpy_driver.c"
-          with open(path, "r") as f: code = f.read()
-          
-          code = re.sub(r"secure_opcodes\[.*?\] = \{.*?\};", "secure_opcodes[256] = {0};", code, flags=re.DOTALL)
-          
-          patch = """
-          #ifndef _Py_CODEUNIT
-          #define _Py_CODEUNIT uint16_t
-          #endif
-          #ifndef _Py_OPCODE
-          #define _Py_OPCODE(x) 0
-          #endif
-          """
-          code = patch + code
-          
-          code = re.sub(r"(bool BPY_driver_secure_bytecode_test_ex[^\{]*\{)", r"\1 return true;", code)
-          
-          with open(path, "w") as f: f.write(code)
-          '
+          mkdir -p build_blender && cd build_blender
+          cmake ../blender $CMAKE_FLAGS
+          make -j$(nproc)
 
-      - name: Patch Codebase for FFmpeg 7.0
-        run: |
-          cd blender
-          
-          sed -i 's/AV_INPUT_BUFFER_MIN_SIZE/16384/g' source/blender/blenkernel/intern/writeffmpeg.c
-
-          sed -i 's/\bpkt_duration\b/duration/g' source/blender/imbuf/intern/anim_movie.cc
-          sed -i 's/anim->pFrame->key_frame/(anim->pFrame->flags \& AV_FRAME_FLAG_KEY)/g' source/blender/imbuf/intern/anim_movie.cc
-          sed -i 's/format_ctx->iformat->read_seek2 || format_ctx->iformat->read_seek/true/g' source/blender/imbuf/intern/anim_movie.cc
-
-          sed -i 's/m_codecCtx->channels/m_codecCtx->ch_layout.nb_channels/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
-          sed -i 's/codecpar->channels/codecpar->ch_layout.nb_channels/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
-          sed -i 's/AV_INPUT_BUFFER_MIN_SIZE/16384/g' extern/audaspace/plugins/ffmpeg/FFMPEGReader.cpp
-
-          sed -i 's/m_frame->channel_layout = m_codecCtx->channel_layout;/av_channel_layout_copy(\&m_frame->ch_layout, \&m_codecCtx->ch_layout);/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
-          sed -i 's/m_frame->channels = m_specs.channels;/m_frame->ch_layout.nb_channels = m_specs.channels;/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
-          sed -i 's/m_codecCtx->channel_layout = channel_layout;/av_channel_layout_from_mask(\&m_codecCtx->ch_layout, channel_layout);/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
-          sed -i 's/m_codecCtx->channels = m_specs.channels;/m_codecCtx->ch_layout.nb_channels = m_specs.channels;/g' extern/audaspace/plugins/ffmpeg/FFMPEGWriter.cpp
-          
-          sed -i 's/in_frame->pkt_pos/0/g' source/blender/imbuf/intern/indexer.cc
-          sed -i 's/in_frame->pkt_duration/in_frame->duration/g' source/blender/imbuf/intern/indexer.cc
-
-      - name: Patch OCIO 2.3+ Compatibility (Python)
-        run: |
-          cd blender
-          python3 -c '
-          import re
-          path = "source/blender/compositor/realtime_compositor/cached_resources/intern/ocio_color_space_conversion_shader.cc"
-          with open(path, "r") as f: code = f.read()
-          
-          code = re.sub(r"\boverride\b", "", code)
-          
-          code = re.sub(r"(VectorFloatGetter[^)]*)\)", r"\1, unsigned int capacity)", code)
-          code = re.sub(r"(VectorIntGetter[^)]*)\)", r"\1, unsigned int capacity)", code)
-          
-          code = code.replace("void addTexture", "unsigned int addTexture")
-          code = code.replace("void add3DTexture", "unsigned int add3DTexture")
-          
-          lines = code.split("\n")
-          lines[248] = lines[248].replace("}", "return 0; }") # Line 249
-          lines[271] = lines[271].replace("}", "return 0; }") # Line 272
-          code = "\n".join(lines)
-          
-          code = code.replace("return shader_creator.get_shader_code();", "return (OCIO_VERSION_HEX >= 0x02030000) ? shader_desc->getShaderText() : shader_creator.get_shader_code();")
-          
-          with open(path, "w") as f: f.write(code)
-          '
-
-      - name: Configure CMake
-        run: |
-          cd blender
-          mkdir -p build && cd build
-
-          export PKG_CONFIG_SYSROOT_DIR=/opt/sysroot
-          export PKG_CONFIG_PATH=/opt/sysroot/usr/lib/aarch64-linux-gnu/pkgconfig:/opt/sysroot/usr/share/pkgconfig
-
-          cmake .. -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-            -DCMAKE_SYSROOT=/opt/sysroot \
-            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_FIND_ROOT_PATH="/opt/sysroot" \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY \
-            -DWITH_INSTALL_PORTABLE=ON \
-            -DWITH_LIBS_PRECOMPILED=OFF \
-            -DWITH_TESTS=OFF \
-            -DPYTHON_VERSION=3.14 \
-            -DWITH_PYTHON_INSTALL=OFF \
-            \
-            -DWITH_GHOST_X11=ON \
-            -DWITH_GHOST_WAYLAND=OFF \
-            \
-            -DWITH_OPENMP=ON \
-            -DWITH_TBB=ON \
-            -DWITH_CYCLES=ON \
-            -DWITH_MOD_FLUID=ON \
-            -DWITH_CODEC_FFMPEG=ON \
-            -DWITH_PYTHON=ON \
-            -DWITH_OPENCOLORIO=ON \
-            \
-            -DWITH_CYCLES_DEVICE_CUDA=OFF \
-            -DWITH_CYCLES_DEVICE_OPTIX=OFF \
-            -DWITH_CYCLES_DEVICE_HIP=OFF \
-            -DWITH_CYCLES_DEVICE_ONEAPI=OFF \
-            -DWITH_CYCLES_EMBREE=OFF \
-            -DWITH_CYCLES_PATH_GUIDING=OFF \
-            -DWITH_OPENIMAGEDENOISE=OFF \
-            -DWITH_USD=OFF \
-            -DWITH_OPENVDB=OFF \
-            -DWITH_OPENCOLLADA=OFF \
-            -DWITH_ALEMBIC=OFF \
-            -DWITH_OPENSUBDIV=OFF \
-            -DWITH_XR_OPENXR=OFF \
-            -DWITH_INPUT_NDOF=OFF \
-            -DWITH_POTRACE=OFF \
-            -DWITH_JACK=OFF \
-            -DWITH_PULSEAUDIO=OFF \
-            -DWITH_DOC_MANPAGE=OFF \
-            -DWITH_FREESTYLE=OFF
-
-      - name: Build & Package Blender
-        run: |
-          cd blender/build
-          ninja -j$(nproc)
-          ninja install
-
-      - name: Upload Artifact
+      - name: Upload Compiled Artifact
         uses: actions/upload-artifact@v4
         with:
           name: blender-3.6.23-aarch64
-          path: blender/build/bin
-          retention-days: 10
+          path: build_blender/bin//
