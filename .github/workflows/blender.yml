@@ -47,12 +47,6 @@ jobs:
           echo "Extracting Gzip sysroot"
           sudo tar -xzf sysroot.tar.gz -C /opt/sysroot
 
-      - name: Checkout Blender Source
-        run: |
-          git clone --depth 1 -b "${BLENDER_BRANCH}" https://github.com/blender/blender.git blender
-          cd blender
-          git submodule update --init --recursive --depth 1
-
       - name: Pre-download Dead FTP Dependencies
         run: |
           mkdir -p build_deps/packages
