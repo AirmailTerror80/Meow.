@@ -22,11 +22,9 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            bc bison build-essential ccache curl flex \
-            git gnupg gperf libelf-dev libncurses5-dev \
-            libssl-dev libxml2 libxml2-utils lzop make ninja-build \
-            python3 rsync zip zlib1g-dev
+          sudo apt-get install -y bc bison build-essential ccache \
+          curl flex git gnupg gperf libelf-dev libncurses5-dev \
+          libssl-dev libxml2-dev libxml2-utils lzop make ninja-build python3 zip zlib1g-dev
       
       - name: Download Toolchain
         run: |
