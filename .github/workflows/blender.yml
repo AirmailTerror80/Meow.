@@ -1,6 +1,8 @@
 name: Build Blender 4.2.23 LTS (aarch64)
 
 on:
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -22,10 +24,16 @@ jobs:
           $SUDO apt-get update
           $SUDO apt-get install -y clang llvm lld cmake git make subversion patch curl tar xz-utils bzip2
           
-          # Install GCC cross toolchain (provides necessary crt*.o and libgcc for clang) and sysroot
+          # Install GCC cross toolchain & sysroot (if host is x86_64 GH Runner)
           ARCH=$(uname -m)
           if [ "$ARCH" = "x86_64" ]; then
             $SUDO apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross linux-libc-dev-arm64-cross
+            
+            # FIX: Debian multiarch/cross packages embed host absolute paths in libc.so
+            # By symlinking the duplicated sysroot path to itself, ld.lld correctly locates libc.so.6
+            $SUDO mkdir -p /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu
+            $SUDO ln -snf /usr/aarch64-linux-gnu/lib /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu/lib
+            $SUDO ln -snf /usr/aarch64-linux-gnu/include /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu/include
           fi
 
       - name: Cross-build Standard Dependencies (No Heavy Desktop/VFX features)
