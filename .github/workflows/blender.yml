@@ -24,11 +24,29 @@ jobs:
           $SUDO apt-get update
           $SUDO apt-get install -y clang llvm lld cmake git make subversion patch curl tar xz-utils bzip2 rsync
           
-          # Re-enable the foundational Ubuntu libc/libstdc++ base cross-compiler environment
           ARCH=$(uname -m)
           if [ "$ARCH" = "x86_64" ]; then
             $SUDO apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross linux-libc-dev-arm64-cross \
             build-essential git git-lfs subversion cmake autoconf automake bison libtool yasm tcl ninja-build meson python3-mako patchelf
+          fi
+
+      - name: Setup Hardcoded Compiler Wrappers
+        run: |
+          SUDO=""
+          if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
+          ARCH=$(uname -m)
+          
+          # FIX: Prevent Makefile-based deps (OpenSSL) from stripping architecture flags by wrapping Clang
+          if [ "$ARCH" = "x86_64" ]; then
+            $SUDO mkdir -p /opt/cross-bin
+            
+            echo '#!/bin/bash' | $SUDO tee /opt/cross-bin/clang
+            echo 'exec /usr/bin/clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -fuse-ld=lld "$@"' | $SUDO tee -a /opt/cross-bin/clang
+            
+            echo '#!/bin/bash' | $SUDO tee /opt/cross-bin/clang++
+            echo 'exec /usr/bin/clang++ --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -fuse-ld=lld "$@"' | $SUDO tee -a /opt/cross-bin/clang++
+            
+            $SUDO chmod +x /opt/cross-bin/clang /opt/cross-bin/clang++
           fi
 
       - name: Fetch Custom Sysroot & Link Missing GCC Libs
@@ -40,7 +58,6 @@ jobs:
           if [ "$ARCH" = "x86_64" ]; then
             $SUDO mkdir -p /opt/arm64-sysroot
             
-            # Fetch Custom Sysroot dynamically from your GitHub Release
             SYSROOT_URL=$(curl -s "https://api.github.com/repos/AirmailTerror80/Meow./releases/tags/arm64-sysroot" | grep "browser_download_url" | head -n 1 | cut -d '"' -f 4)
             $SUDO curl -L "$SYSROOT_URL" -o /opt/sysroot_archive
             $SUDO tar -xf /opt/sysroot_archive -C /opt/arm64-sysroot
@@ -82,22 +99,17 @@ jobs:
 
       - name: Patch Source Code for Cross-Compilation
         run: |
-          ARCH=$(uname -m)
+          # 1. Force OpenSSL to generate ARM Makefiles instead of x86_64 Makefiles
+          sed -i 's|\./config|\./Configure linux-aarch64|g' blender/build_files/build_environment/cmake/ssl.cmake
           
-          if [ "$ARCH" = "x86_64" ]; then
-            # FIX: Force OpenSSL to cross-compile for aarch64 and inject the compiler flags directly into the Configure line
-            sed -i 's|\./config|\./Configure linux-aarch64 --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu|g' blender/build_files/build_environment/cmake/ssl.cmake
-          fi
-          
+          # 2. Disable broken headers in OpenAL
           sed -i 's/-DALSOFT_REQUIRE_PULSEAUDIO=ON/-DALSOFT_REQUIRE_PULSEAUDIO=OFF/g' blender/build_files/build_environment/cmake/openal.cmake || true
           sed -i 's/-DALSOFT_REQUIRE_PIPEWIRE=ON/-DALSOFT_REQUIRE_PIPEWIRE=OFF/g' blender/build_files/build_environment/cmake/openal.cmake || true
 
       - name: Cross-build Standard Dependencies (No Heavy VFX features)
         run: |
           ARCH=$(uname -m)
-          DEPS_FLAGS="-DCMAKE_C_COMPILER=clang \
-                      -DCMAKE_CXX_COMPILER=clang++ \
-                      -DCMAKE_AR=llvm-ar \
+          DEPS_FLAGS="-DCMAKE_AR=llvm-ar \
                       -DCMAKE_RANLIB=llvm-ranlib \
                       -DCMAKE_LINKER=ld.lld \
                       -DBUILD_OPENVDB=OFF \
@@ -113,12 +125,10 @@ jobs:
             export PKG_CONFIG_LIBDIR=/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/aarch64-linux-gnu/share/pkgconfig
             export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
             
-            # FIX: Ensure stubborn dependency Makefiles globally inherit cross-compilation targets
-            export CFLAGS="--target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu"
-            export CXXFLAGS="--target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu"
-            export LDFLAGS="--target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -fuse-ld=lld"
-            
+            # Point CMake to the indestructible Wrapper Scripts
             DEPS_FLAGS="$DEPS_FLAGS \
+                        -DCMAKE_C_COMPILER=/opt/cross-bin/clang \
+                        -DCMAKE_CXX_COMPILER=/opt/cross-bin/clang++ \
                         -DCMAKE_SYSTEM_NAME=Linux \
                         -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
                         -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
@@ -127,6 +137,8 @@ jobs:
                         -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
                         -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
                         -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld"
+          else
+            DEPS_FLAGS="$DEPS_FLAGS -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++"
           fi
           
           mkdir -p build_deps && cd build_deps
@@ -136,10 +148,7 @@ jobs:
       - name: Cross-build Blender (aarch64, X11 enabled)
         run: |
           ARCH=$(uname -m)
-          CMAKE_FLAGS="-DCMAKE_SYSTEM_NAME=Linux \
-                       -DCMAKE_C_COMPILER=clang \
-                       -DCMAKE_CXX_COMPILER=clang++ \
-                       -DCMAKE_AR=llvm-ar \
+          CMAKE_FLAGS="-DCMAKE_AR=llvm-ar \
                        -DCMAKE_RANLIB=llvm-ranlib \
                        -DCMAKE_LINKER=ld.lld \
                        -DCMAKE_PREFIX_PATH=../build_deps/opt \
@@ -162,11 +171,10 @@ jobs:
             export PKG_CONFIG_LIBDIR=/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/aarch64-linux-gnu/share/pkgconfig
             export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
             
-            export CFLAGS="--target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu"
-            export CXXFLAGS="--target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu"
-            export LDFLAGS="--target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -fuse-ld=lld"
-            
             CMAKE_FLAGS="$CMAKE_FLAGS \
+                         -DCMAKE_C_COMPILER=/opt/cross-bin/clang \
+                         -DCMAKE_CXX_COMPILER=/opt/cross-bin/clang++ \
+                         -DCMAKE_SYSTEM_NAME=Linux \
                          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
                          -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
                          -DCMAKE_CXX_COMPILER_TARGET=aarch64-linux-gnu \
@@ -179,6 +187,8 @@ jobs:
                          -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
                          -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
                          -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld"
+          else
+            CMAKE_FLAGS="$CMAKE_FLAGS -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++"
           fi
           
           mkdir -p build_blender && cd build_blender
