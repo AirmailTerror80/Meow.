@@ -1,8 +1,6 @@
 name: Native Build Blender 4.2 LTS (aarch64)
 
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch:
 
 env:
@@ -11,6 +9,7 @@ env:
 
 jobs:
   build-native:
+    # Explicitly utilize GitHub's free ARM64 hardware runner
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -25,12 +24,24 @@ jobs:
       - name: Install Native Build Requirements
         run: |
           sudo apt-get update
+          # Notice we removed 'libtool' from apt-get, we will install it manually to prevent version conflicts
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build ccache git subversion \
-            curl xz-utils bzip2 patch autoconf automake bison libtool yasm tcl \
+            curl xz-utils bzip2 patch autoconf automake bison yasm tcl \
             meson python3-mako patchelf \
             libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev \
             libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev libdbus-1-dev linux-libc-dev
+
+      - name: Compile Libtool 2.4.7 (Fixes SQLite/Autotools Mismatch)
+        run: |
+          # Upgrades system libtool to the modern upstream standard 
+          curl -LO https://ftpmirror.gnu.org/libtool/libtool-2.4.7.tar.gz
+          tar -xzf libtool-2.4.7.tar.gz
+          cd libtool-2.4.7
+          ./configure --prefix=/usr
+          make -j$(nproc)
+          sudo make install
+          libtool --version
 
       - name: Setup Compiler Cache
         uses: hendrikmuhs/ccache-action@v1.2.23
@@ -38,13 +49,6 @@ jobs:
           key: ${{ runner.os }}-ccache-blender-native-4.2
           restore-keys: ${{ runner.os }}-ccache-
           max-size: 2G
-
-      - name: Fix libtool version mismatch
-        run: |
-          # blender deps ship aclocal.m4 from libtool 2.4.7, runner has 2.4.6
-          find blender -name "aclocal.m4" -delete
-          # force external projects to regen after download
-          echo "AUTORECONF=true" >> $GITHUB_ENV
 
       - name: Pre-download Dead FTP Dependencies
         run: |
@@ -58,6 +62,7 @@ jobs:
           mkdir -p build_deps
           cd build_deps
           
+          # Pure native CMake environment!
           cmake ../blender/build_files/build_environment -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
@@ -69,9 +74,6 @@ jobs:
             -DBUILD_USD=OFF \
             -DBUILD_ALEMBIC=OFF \
             -DBUILD_MATERIALX=OFF
-          
-          # regenerate any stale autotools that still slipped through
-          find build -name "aclocal.m4" -exec sh -c 'cd $(dirname {}) && autoreconf -fiv || true' \; || true
             
           ninja -j$(nproc)
 
@@ -114,4 +116,4 @@ jobs:
         with:
           name: blender-4.2.23-aarch64-deps
           path: |
-            build_deps/*
+            build_deps/
