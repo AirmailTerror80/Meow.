@@ -41,6 +41,7 @@ jobs:
         run: |
           mkdir -p build_deps/packages
           curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
+          curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
 
       - name: Cross-build Standard Dependencies (No Heavy Desktop/VFX features)
         run: |
