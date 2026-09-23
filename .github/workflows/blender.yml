@@ -10,14 +10,10 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Blender 4.2.23 LTS
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          repository: blender/blender
-          ref: v4.2.23
-          path: blender
-          submodules: recursive
 
       - name: Install Host tools & GCC Cross-Compiler
         run: |
@@ -46,18 +42,25 @@ jobs:
           echo "Extracting Gzip sysroot"
           sudo tar -xzf sysroot.tar.gz -C /opt/sysroot
 
+      - name: Checkout Blender Source
+        run: |
+          git clone --depth 1 -b "${BLENDER_BRANCH}" https://github.com/blender/blender.git blender
+          cd blender
+          git submodule update --init --recursive --depth 1
+
       - name: Pre-download Dead FTP Dependencies
         run: |
           mkdir -p build_deps/packages
-          # Bypass deprecated FTP servers that commonly timeout on GH Actions
           curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
           curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
           curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
 
       - name: Patch Stubborn Dependency Scripts (OpenSSL & OpenAL)
         run: |
-          # 1. Force OpenSSL to configure for linux-aarch64 architecture
-          sed -i 's|\./config|\./Configure linux-aarch64|g' blender/build_files/build_environment/cmake/ssl.cmake
+          cd blender
+          
+          # 1. Force OpenSSL to explicitly cross-compile (using --cross-compile-prefix flag safely)
+          sed -i 's|\./config|\./Configure linux-aarch64 --cross-compile-prefix=aarch64-linux-gnu-|g' build_files/build_environment/cmake/ssl.cmake
           
       - name: Configure CMake for Cross-Dependencies
         run: |
@@ -96,10 +99,7 @@ jobs:
       - name: Build Cross-Compiled Dependencies
         run: |
           cd build_deps
-          # Hardcode compiler commands to prevent Makefile dependencies from falling back to host 'gcc'
-          export CC=aarch64-linux-gnu-gcc
-          export CXX=aarch64-linux-gnu-g++
-          export CROSS_COMPILE=aarch64-linux-gnu-
+          # Run ninja cleanly (no exported overrides required!)
           ninja -j$(nproc)
 
       - name: Upload Dependency Artifact
