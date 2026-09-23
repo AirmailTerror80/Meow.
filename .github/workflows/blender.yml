@@ -29,7 +29,8 @@ jobs:
           if [ "$ARCH" = "x86_64" ]; then
             $SUDO apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross linux-libc-dev-arm64-cross \
             build-essential git git-lfs subversion cmake libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev libegl-dev \
-            libwayland-dev wayland-protocols libxkbcommon-dev libdbus-1-dev linux-libc-dev
+            libwayland-dev wayland-protocols libxkbcommon-dev libdbus-1-dev linux-libc-dev \
+            autoconf automake bison libtool yasm tcl ninja-build meson python3-mako patchelf
             
             # FIX: Debian multiarch/cross packages embed host absolute paths in libc.so
             # By symlinking the duplicated sysroot path to itself, ld.lld correctly locates libc.so.6
