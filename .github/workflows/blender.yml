@@ -30,23 +30,36 @@ jobs:
             build-essential git git-lfs subversion cmake autoconf automake bison libtool yasm tcl ninja-build meson python3-mako patchelf
           fi
 
-      - name: Setup Hardcoded Compiler Wrappers
+      - name: Setup Hardcoded Compiler Wrappers (OpenSSL Fix)
         run: |
           SUDO=""
           if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
           ARCH=$(uname -m)
           
-          # FIX: Prevent Makefile-based deps (OpenSSL) from stripping architecture flags by wrapping Clang
           if [ "$ARCH" = "x86_64" ]; then
             $SUDO mkdir -p /opt/cross-bin
             
-            echo '#!/bin/bash' | $SUDO tee /opt/cross-bin/clang
-            echo 'exec /usr/bin/clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -fuse-ld=lld "$@"' | $SUDO tee -a /opt/cross-bin/clang
+            # Universal Wrappers
+            echo '#!/bin/bash' | $SUDO tee /opt/cross-bin/cross-clang
+            echo 'exec /usr/bin/clang --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -fuse-ld=lld "$@"' | $SUDO tee -a /opt/cross-bin/cross-clang
             
-            echo '#!/bin/bash' | $SUDO tee /opt/cross-bin/clang++
-            echo 'exec /usr/bin/clang++ --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -fuse-ld=lld "$@"' | $SUDO tee -a /opt/cross-bin/clang++
+            echo '#!/bin/bash' | $SUDO tee /opt/cross-bin/cross-clang++
+            echo 'exec /usr/bin/clang++ --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -fuse-ld=lld "$@"' | $SUDO tee -a /opt/cross-bin/cross-clang++
             
-            $SUDO chmod +x /opt/cross-bin/clang /opt/cross-bin/clang++
+            $SUDO chmod +x /opt/cross-bin/cross-clang /opt/cross-bin/cross-clang++
+            
+            # Intercept ALL compiler commands requested by rigid Makefiles
+            for cmd in clang cc gcc aarch64-linux-gnu-gcc; do
+              $SUDO ln -sf /opt/cross-bin/cross-clang /opt/cross-bin/$cmd
+            done
+            for cmd in clang++ c++ g++ aarch64-linux-gnu-g++; do
+              $SUDO ln -sf /opt/cross-bin/cross-clang++ /opt/cross-bin/$cmd
+            done
+            
+            # Intercept build utilities
+            $SUDO ln -sf /usr/bin/llvm-ar /opt/cross-bin/ar
+            $SUDO ln -sf /usr/bin/llvm-ranlib /opt/cross-bin/ranlib
+            $SUDO ln -sf /usr/bin/ld.lld /opt/cross-bin/ld
           fi
 
       - name: Fetch Custom Sysroot & Link Missing GCC Libs
@@ -57,7 +70,6 @@ jobs:
           
           if [ "$ARCH" = "x86_64" ]; then
             $SUDO mkdir -p /opt/arm64-sysroot
-            
             SYSROOT_URL=$(curl -s "https://api.github.com/repos/AirmailTerror80/Meow./releases/tags/arm64-sysroot" | grep "browser_download_url" | head -n 1 | cut -d '"' -f 4)
             $SUDO curl -L "$SYSROOT_URL" -o /opt/sysroot_archive
             $SUDO tar -xf /opt/sysroot_archive -C /opt/arm64-sysroot
@@ -99,10 +111,7 @@ jobs:
 
       - name: Patch Source Code for Cross-Compilation
         run: |
-          # 1. Force OpenSSL to generate ARM Makefiles instead of x86_64 Makefiles
-          sed -i 's|\./config|\./Configure linux-aarch64|g' blender/build_files/build_environment/cmake/ssl.cmake
-          
-          # 2. Disable broken headers in OpenAL
+          # Disable broken missing headers in OpenAL PulseAudio/Pipewire requirements
           sed -i 's/-DALSOFT_REQUIRE_PULSEAUDIO=ON/-DALSOFT_REQUIRE_PULSEAUDIO=OFF/g' blender/build_files/build_environment/cmake/openal.cmake || true
           sed -i 's/-DALSOFT_REQUIRE_PIPEWIRE=ON/-DALSOFT_REQUIRE_PIPEWIRE=OFF/g' blender/build_files/build_environment/cmake/openal.cmake || true
 
@@ -121,14 +130,16 @@ jobs:
                       -DBUILD_MATERIALX=OFF"
           
           if [ "$ARCH" = "x86_64" ]; then
+            # Bind wrapper scripts directly into the environment path securely ahead of standard libs
+            export PATH="/opt/cross-bin:$PATH"
+            
             export PKG_CONFIG_DIR=
             export PKG_CONFIG_LIBDIR=/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/aarch64-linux-gnu/share/pkgconfig
             export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
             
-            # Point CMake to the indestructible Wrapper Scripts
             DEPS_FLAGS="$DEPS_FLAGS \
-                        -DCMAKE_C_COMPILER=/opt/cross-bin/clang \
-                        -DCMAKE_CXX_COMPILER=/opt/cross-bin/clang++ \
+                        -DCMAKE_C_COMPILER=clang \
+                        -DCMAKE_CXX_COMPILER=clang++ \
                         -DCMAKE_SYSTEM_NAME=Linux \
                         -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
                         -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
@@ -167,13 +178,16 @@ jobs:
                        -DWITH_MATERIALX=OFF"
           
           if [ "$ARCH" = "x86_64" ]; then
+            # Bind wrappers for final Blender build as well
+            export PATH="/opt/cross-bin:$PATH"
+            
             export PKG_CONFIG_DIR=
             export PKG_CONFIG_LIBDIR=/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/aarch64-linux-gnu/share/pkgconfig
             export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
             
             CMAKE_FLAGS="$CMAKE_FLAGS \
-                         -DCMAKE_C_COMPILER=/opt/cross-bin/clang \
-                         -DCMAKE_CXX_COMPILER=/opt/cross-bin/clang++ \
+                         -DCMAKE_C_COMPILER=clang \
+                         -DCMAKE_CXX_COMPILER=clang++ \
                          -DCMAKE_SYSTEM_NAME=Linux \
                          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
                          -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
@@ -199,4 +213,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64
-          path: build_blender/bin/
+          path: build_blender/bin/-
