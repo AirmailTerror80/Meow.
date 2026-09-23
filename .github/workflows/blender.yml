@@ -17,22 +17,21 @@ jobs:
           path: blender
           submodules: recursive
 
-      - name: Install Toolchain (LLVM & base tools)
+      - name: Install Toolchain & Standard Sysroot
         run: |
           SUDO=""
           if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
           $SUDO apt-get update
+          $SUDO apt-get install -y clang llvm lld cmake git make subversion patch curl tar xz-utils bzip2 rsync
           
-          # We no longer install the Debian libc6 sysroot here because we will use your custom one
-          $SUDO apt-get install -y clang llvm lld cmake git make subversion patch curl tar xz-utils bzip2
-          
+          # Re-enable the foundational Ubuntu libc/libstdc++ base cross-compiler environment
           ARCH=$(uname -m)
           if [ "$ARCH" = "x86_64" ]; then
-            $SUDO apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu build-essential git git-lfs subversion \
-            cmake autoconf automake bison libtool yasm tcl ninja-build meson python3-mako patchelf
+            $SUDO apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross linux-libc-dev-arm64-cross \
+            build-essential git git-lfs subversion cmake autoconf automake bison libtool yasm tcl ninja-build meson python3-mako patchelf
           fi
 
-      - name: Fetch and Install Custom Sysroot
+      - name: Fetch Custom Sysroot & Merge with GNU Sysroot
         run: |
           SUDO=""
           if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
@@ -41,27 +40,30 @@ jobs:
           if [ "$ARCH" = "x86_64" ]; then
             $SUDO mkdir -p /opt/arm64-sysroot
             
-            # Dynamically fetch the download URL from the GitHub Release API
+            # Fetch Custom Sysroot dynamically from your GitHub Release
             SYSROOT_URL=$(curl -s "https://api.github.com/repos/AirmailTerror80/Meow./releases/tags/arm64-sysroot" | grep "browser_download_url" | head -n 1 | cut -d '"' -f 4)
-            
-            if [ -z "$SYSROOT_URL" ]; then
-              echo "Error: Could not find sysroot download URL in release!"
-              exit 1
-            fi
-            
-            echo "Downloading sysroot from: $SYSROOT_URL"
             $SUDO curl -L "$SYSROOT_URL" -o /opt/sysroot_archive
-            
-            echo "Extracting sysroot..."
             $SUDO tar -xf /opt/sysroot_archive -C /opt/arm64-sysroot
             
-            # Flatten directory structure if it extracted as a single top-level folder (e.g., /opt/arm64-sysroot/sysroot/usr)
+            # Flatten if nested
             if [ -d "/opt/arm64-sysroot/sysroot" ]; then
               $SUDO cp -r /opt/arm64-sysroot/sysroot/* /opt/arm64-sysroot/
               $SUDO rm -rf /opt/arm64-sysroot/sysroot
             fi
             
-            echo "Custom sysroot successfully mapped to /opt/arm64-sysroot"
+            # FIX: Overlay the custom GUI/X11 libraries INTO the standard aarch64 working sysroot
+            echo "Merging Custom Sysroot into /usr/aarch64-linux-gnu..."
+            $SUDO rsync -a /opt/arm64-sysroot/usr/include/ /usr/aarch64-linux-gnu/include/ || true
+            if [ -d "/opt/arm64-sysroot/usr/lib/aarch64-linux-gnu" ]; then
+              $SUDO rsync -a /opt/arm64-sysroot/usr/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/ || true
+            fi
+            # Map standard /usr/lib files (ignoring existing critical libc files so standard sysroot persists)
+            $SUDO rsync -a --ignore-existing /opt/arm64-sysroot/usr/lib/ /usr/aarch64-linux-gnu/lib/ || true
+            
+            # Re-apply the multi-arch path trick to appease the LLVM Linker (ld.lld)
+            $SUDO mkdir -p /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu
+            $SUDO ln -snf /usr/aarch64-linux-gnu/lib /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu/lib
+            $SUDO ln -snf /usr/aarch64-linux-gnu/include /usr/aarch64-linux-gnu/usr/aarch64-linux-gnu/include
           fi
 
       - name: Pre-download Dead FTP Dependencies
@@ -73,10 +75,7 @@ jobs:
 
       - name: Patch Source Code for Cross-Compilation
         run: |
-          # Force OpenSSL to compile for aarch64 instead of guessing the x86_64 host
           sed -i 's|\./config|\./Configure linux-aarch64|g' blender/build_files/build_environment/cmake/ssl.cmake
-          
-          # Disable strict requirements in OpenAL that may not exist in minimal arm64 sysroots
           sed -i 's/-DALSOFT_REQUIRE_PULSEAUDIO=ON/-DALSOFT_REQUIRE_PULSEAUDIO=OFF/g' blender/build_files/build_environment/cmake/openal.cmake || true
           sed -i 's/-DALSOFT_REQUIRE_PIPEWIRE=ON/-DALSOFT_REQUIRE_PIPEWIRE=OFF/g' blender/build_files/build_environment/cmake/openal.cmake || true
 
@@ -97,17 +96,18 @@ jobs:
                       -DBUILD_MATERIALX=OFF"
           
           if [ "$ARCH" = "x86_64" ]; then
-            # Bind pkg-config rigidly to the custom sysroot
+            # Bind pkg-config rigidly to the unified sysroot
             export PKG_CONFIG_DIR=
-            export PKG_CONFIG_LIBDIR=/opt/arm64-sysroot/usr/lib/pkgconfig:/opt/arm64-sysroot/usr/share/pkgconfig:/opt/arm64-sysroot/usr/lib/aarch64-linux-gnu/pkgconfig
-            export PKG_CONFIG_SYSROOT_DIR=/opt/arm64-sysroot
+            export PKG_CONFIG_LIBDIR=/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/aarch64-linux-gnu/share/pkgconfig
+            export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
             
+            # Point sysroot back to /usr/aarch64-linux-gnu (which now contains base libs + your custom X11 libs)
             DEPS_FLAGS="$DEPS_FLAGS \
                         -DCMAKE_SYSTEM_NAME=Linux \
                         -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
                         -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
                         -DCMAKE_CXX_COMPILER_TARGET=aarch64-linux-gnu \
-                        -DCMAKE_SYSROOT=/opt/arm64-sysroot \
+                        -DCMAKE_SYSROOT=/usr/aarch64-linux-gnu \
                         -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
                         -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
                         -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld"
@@ -143,15 +143,15 @@ jobs:
           
           if [ "$ARCH" = "x86_64" ]; then
             export PKG_CONFIG_DIR=
-            export PKG_CONFIG_LIBDIR=/opt/arm64-sysroot/usr/lib/pkgconfig:/opt/arm64-sysroot/usr/share/pkgconfig:/opt/arm64-sysroot/usr/lib/aarch64-linux-gnu/pkgconfig
-            export PKG_CONFIG_SYSROOT_DIR=/opt/arm64-sysroot
+            export PKG_CONFIG_LIBDIR=/usr/aarch64-linux-gnu/lib/pkgconfig:/usr/aarch64-linux-gnu/share/pkgconfig
+            export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
             
             CMAKE_FLAGS="$CMAKE_FLAGS \
                          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
                          -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
                          -DCMAKE_CXX_COMPILER_TARGET=aarch64-linux-gnu \
-                         -DCMAKE_SYSROOT=/opt/arm64-sysroot \
-                         -DCMAKE_FIND_ROOT_PATH=/opt/arm64-sysroot \
+                         -DCMAKE_SYSROOT=/usr/aarch64-linux-gnu \
+                         -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu \
                          -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
                          -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
                          -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
