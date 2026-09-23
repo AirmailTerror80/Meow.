@@ -25,7 +25,8 @@ jobs:
           sudo apt install -y --no-install-recommends \
             build-essential cmake ninja-build ccache \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu pkg-config curl \
-            qemu-user-static binfmt-support patch xz-utils bzip2
+            qemu-user-static binfmt-support patch xz-utils bzip2 \
+            autoconf automake bison libtool yasm tcl meson python3-mako patchelf
 
       - name: Setup Compiler Cache (ccache)
         uses: hendrikmuhs/ccache-action@v1.2.23
