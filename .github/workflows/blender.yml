@@ -54,9 +54,13 @@ jobs:
           curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
           curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
 
+      - name: Patch Stubborn Dependency Scripts (OpenSSL & OpenAL)
+        run: |
+          # 1. Force OpenSSL to configure for linux-aarch64 architecture
+          sed -i 's|\./config|\./Configure linux-aarch64|g' blender/build_files/build_environment/cmake/ssl.cmake
+          
       - name: Configure CMake for Cross-Dependencies
         run: |
-          # Globals mapping fallback variables to strictly use our sysroot for raw Makefiles
           export CFLAGS="--sysroot=/opt/sysroot"
           export CXXFLAGS="--sysroot=/opt/sysroot"
           export LDFLAGS="--sysroot=/opt/sysroot"
@@ -67,7 +71,6 @@ jobs:
           mkdir -p build_deps
           cd build_deps
 
-          # Cross-compile the blender dependencies via aarch64-linux-gnu toolchain + Ninja
           cmake ../blender/build_files/build_environment -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_SYSTEM_NAME=Linux \
@@ -93,11 +96,14 @@ jobs:
       - name: Build Cross-Compiled Dependencies
         run: |
           cd build_deps
+          # Hardcode compiler commands to prevent Makefile dependencies from falling back to host 'gcc'
+          export CC=aarch64-linux-gnu-gcc
+          export CXX=aarch64-linux-gnu-g++
+          export CROSS_COMPILE=aarch64-linux-gnu-
           ninja -j$(nproc)
 
       - name: Upload Dependency Artifact
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-deps-aarch64
-          # Output is placed in a platform-specific subfolder (e.g. linux_arm64 / linux_aarch64 / opt)
           path: build_deps/linux_*
