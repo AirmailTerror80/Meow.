@@ -27,7 +27,7 @@ jobs:
           sudo apt-get update
           
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build ccache git subversion curl xz-utils bzip2 patch \
+            build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake libtool m4 meson python3-mako patchelf gettext autopoint pkg-config \
             clang llvm lld libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
@@ -42,27 +42,26 @@ jobs:
 
       - name: Target Native Compatibility Hot-Fixes
         run: |
-                cd blender
-                
-                sed -i 's|\${SRC_DIR}/configure|cd \${SRC_DIR} \&\& libtoolize -c -f \&\& autoreconf -fi \&\& cd \${BUILD_DIR} \&\& \${SRC_DIR}/configure|g' build_files/build_environment/cmake/sqlite.cmake
-
-                sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
+          cd blender
+          sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
       
-      - name: Prepare Global Ninja Accelerator State (CCACHE) 
+      - name: Prepare Global Compiler Accelerator State (CCACHE) 
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ runner.os }}-ccache
           restore-keys: ${{ runner.os }}-ccache
           max-size: 2G
 
-      - name: Native Sandbox Architecture Render Libraries Execute (aarch64) 
+      - name: Build Environment Dependencies (GCC + Unix Makefiles) 
         run: |
           mkdir -p build_deps && cd build_deps
-                    
-          cmake ../blender/build_files/build_environment -G Ninja \
+          
+          export CC=gcc CXX=g++
+          
+          cmake ../blender/build_files/build_environment \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=clang \
-            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++ \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DBUILD_OPENVDB=OFF \
@@ -72,16 +71,16 @@ jobs:
             -DBUILD_USD=OFF \
             -DBUILD_ALEMBIC=OFF \
             -DBUILD_MATERIALX=OFF
-            
-          ninja -j$(nproc)
 
-      - name: Output Blender Standard Framework Runtime Client Execution 
+          make -j$(nproc)
+
+      - name: Build Target Blender Binary (Clang + Unix Makefiles) 
         run: |
           mkdir -p build_blender && cd build_blender
           
           export CC=clang CXX=clang++
           
-          cmake ../blender -G Ninja \
+          cmake ../blender \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
@@ -103,8 +102,8 @@ jobs:
             -DWITH_ALEMBIC=OFF \
             -DWITH_MATERIALX=OFF
             
-          ninja -j$(nproc)
-          ninja install
+          make -j$(nproc)
+          make install
 
       - name: Dispatch Clean Executable Software Portable Deployment Zip Payload  
         uses: actions/upload-artifact@v4
@@ -116,4 +115,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64-deps
-          path: build_deps/
+          path: |
+            build_deps/linux*
+            build_deps/opt
