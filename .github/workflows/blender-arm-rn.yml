@@ -32,33 +32,7 @@ jobs:
             bison yasm tcl autoconf automake libtool autopoint m4 meson python3-mako patchelf gettext pkg-config \
             clang llvm lld libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
-            libdbus-1-dev linux-libc-dev
-
-      - name: Apply System Architecture Overrides & Fix Scripts
-        run: |
-          # The absolute gold standard strategy for bypassing hardcoded CC/GCC instructions in Legacy makefiles while quashing stringent new LLVM syntax blockages.
-          mkdir -p $HOME/clang-proxy
-          
-          # Inject laxing C-compiler rules physically bypassing local GCC intercepts safely:
-          cat << 'EOF' > $HOME/clang-proxy/clang
-          #!/bin/bash
-          exec /usr/bin/clang -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types "$@"
-          EOF
-          
-          cat << 'EOF' > $HOME/clang-proxy/clang++
-          #!/bin/bash
-          exec /usr/bin/clang++ -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types "$@"
-          EOF
-          
-          chmod +x $HOME/clang-proxy/clang $HOME/clang-proxy/clang++
-          
-          # Force dependencies invoking raw unhandled CC statements to target our resilient proxy automatically 
-          ln -s $HOME/clang-proxy/clang $HOME/clang-proxy/gcc
-          ln -s $HOME/clang-proxy/clang $HOME/clang-proxy/cc
-          ln -s $HOME/clang-proxy/clang++ $HOME/clang-proxy/g++
-          ln -s $HOME/clang-proxy/clang++ $HOME/clang-proxy/c++
-          
-          echo "$HOME/clang-proxy" >> $GITHUB_PATH
+            libdbus-1-dev linux-libc-dev 
 
       - name: Prepare Global Cached Directory Environment
         uses: hendrikmuhs/ccache-action@v1.2.23
