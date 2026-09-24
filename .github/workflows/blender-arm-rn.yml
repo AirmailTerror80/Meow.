@@ -22,73 +22,73 @@ jobs:
           path: blender
           submodules: recursive
 
-      - name: Install System Build Toolkits
+      - name: Install Pure Native Requirements
         run: |
           sudo apt-get update
+          
+          # Autotools suite explicitly downloaded to prevent Autogen crashes internally on older deps (like flex!)
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build ccache git subversion curl xz-utils bzip2 patch \
-            bison yasm tcl autoconf automake meson python3-mako patchelf gettext pkg-config \
+            bison yasm tcl autoconf automake libtool autopoint m4 meson python3-mako patchelf gettext pkg-config \
             clang llvm lld libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
             libdbus-1-dev linux-libc-dev
 
-      - name: Construct Unbreakable Compiler Intercepts
+      - name: Apply System Architecture Overrides & Fix Scripts
         run: |
-          # Intercept rigid legacy makefiles entirely bypassing CMake parameters
-          mkdir -p $HOME/toolchain-intercept
+          # The absolute gold standard strategy for bypassing hardcoded CC/GCC instructions in Legacy makefiles while quashing stringent new LLVM syntax blockages.
+          mkdir -p $HOME/clang-proxy
           
-          # 1. Force Make-called Clang tasks to universally swallow legacy C99 compatibility flags
-          cat << 'EOF' > $HOME/toolchain-intercept/clang
+          # Inject laxing C-compiler rules physically bypassing local GCC intercepts safely:
+          cat << 'EOF' > $HOME/clang-proxy/clang
           #!/bin/bash
           exec /usr/bin/clang -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types "$@"
           EOF
           
-          cat << 'EOF' > $HOME/toolchain-intercept/clang++
+          cat << 'EOF' > $HOME/clang-proxy/clang++
           #!/bin/bash
           exec /usr/bin/clang++ -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types "$@"
           EOF
           
-          chmod +x $HOME/toolchain-intercept/clang $HOME/toolchain-intercept/clang++
+          chmod +x $HOME/clang-proxy/clang $HOME/clang-proxy/clang++
           
-          # 2. Seamlessly re-route raw GCC requests down to the strict C99 patched proxy script above 
-          ln -s $HOME/toolchain-intercept/clang $HOME/toolchain-intercept/gcc
-          ln -s $HOME/toolchain-intercept/clang $HOME/toolchain-intercept/cc
-          ln -s $HOME/toolchain-intercept/clang++ $HOME/toolchain-intercept/g++
-          ln -s $HOME/toolchain-intercept/clang++ $HOME/toolchain-intercept/c++
+          # Force dependencies invoking raw unhandled CC statements to target our resilient proxy automatically 
+          ln -s $HOME/clang-proxy/clang $HOME/clang-proxy/gcc
+          ln -s $HOME/clang-proxy/clang $HOME/clang-proxy/cc
+          ln -s $HOME/clang-proxy/clang++ $HOME/clang-proxy/g++
+          ln -s $HOME/clang-proxy/clang++ $HOME/clang-proxy/c++
           
-          # 3. Suppress all libtool mismatch regressions by simulating successful executions for timestamp builds 
-          ln -s /usr/bin/true $HOME/toolchain-intercept/aclocal
-          ln -s /usr/bin/true $HOME/toolchain-intercept/aclocal-1.16
-          ln -s /usr/bin/true $HOME/toolchain-intercept/autoconf
-          ln -s /usr/bin/true $HOME/toolchain-intercept/automake
-          ln -s /usr/bin/true $HOME/toolchain-intercept/automake-1.16
-          ln -s /usr/bin/true $HOME/toolchain-intercept/autoheader
-          ln -s /usr/bin/true $HOME/toolchain-intercept/libtoolize
-          
-          # Prepend Sandbox as global priority #1 on GitHub Environment Engine 
-          echo "$HOME/toolchain-intercept" >> $GITHUB_PATH
+          echo "$HOME/clang-proxy" >> $GITHUB_PATH
 
-      - name: Setup Global Build Cache Context
+      - name: Prepare Global Cached Directory Environment
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-ccache-
-          restore-keys: ${{ runner.os }}-ccache-
+          key: ${{ runner.os }}-ccache-clang
+          restore-keys: ${{ runner.os }}-ccache-clang
           max-size: 2G
 
-      - name: Refresh Disabled FTP Dependency Endpoints 
+      - name: Bridge Abandoned Networking Components  
         run: |
           mkdir -p build_deps/packages
           curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
           curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
           curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
-         
-      - name: Compiling Standalone Dependency Environment (Ninja + Native)
+
+      - name: Patch Configuration Errors Locally via Sed Replacements 
         run: |
-          cd build_deps
+          cd blender
           
-          export AUTOCONF=true AUTOMAKE=true ACLOCAL=true AUTOHEADER=true MAKEINFO=true
+          # SQLite: Force Re-Configuration to wipe old internal dependencies against global Runner toolset 
+          # Guaranteed 100% resolve against the Autotools version mismatch crashing SQLite (while preserving Flex functions)
+          sed -i 's|\${SRC_DIR}/configure|autoreconf -fiv \${SRC_DIR} \&\& \${SRC_DIR}/configure|g' build_files/build_environment/cmake/sqlite.cmake
+          
+      - name: Launch Build Environments Execution Sandbox (Target - Libs) 
+        run: |
+          mkdir -p build_deps && cd build_deps
+          
           export CC=clang CXX=clang++ 
           
+          # Directly feed native paths. Any subsequent internal GCC execution perfectly re-aligns automatically alongside ninja!
           cmake ../blender/build_files/build_environment -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=clang \
@@ -105,7 +105,7 @@ jobs:
             
           ninja -j$(nproc)
 
-      - name: Construct Standalone Target Client (Ninja + Native)
+      - name: Build Core Output Applications Array Sandbox (Target - Final GUI Application Build)
         run: |
           mkdir -p build_blender && cd build_blender
           
@@ -136,13 +136,13 @@ jobs:
           ninja -j$(nproc)
           ninja install
 
-      - name: Dispatch Render Artifact Binary Target 
+      - name: Package Extracted Client Software ZIP Output  
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64-app
           path: build_blender/bin/
 
-      - name: Dispatch Toolchain Dependencies Base 
+      - name: Output Environment Source Configuration Output Dependencies ZIP Array
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64-deps
