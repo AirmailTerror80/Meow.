@@ -11,6 +11,7 @@ env:
 
 jobs:
   build-native:
+    # Dedicated Free ARM64 Hardware
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -25,14 +26,46 @@ jobs:
       - name: Install Pure Native Requirements
         run: |
           sudo apt-get update
-          
-          # Autotools suite explicitly downloaded to prevent Autogen crashes internally on older deps (like flex!)
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build ccache git subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake libtool autopoint m4 meson python3-mako patchelf gettext pkg-config \
             clang llvm lld libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
-            libdbus-1-dev linux-libc-dev 
+            libdbus-1-dev linux-libc-dev
+
+      - name: Apply System Architecture Overrides & Proxy Scripts
+        run: |
+          mkdir -p $HOME/clang-proxy
+          
+          # 1. Clang C Proxy: Override strict C99 constraints AFTER package flags, and emulate GNU's OS-dir lookup
+          cat << 'EOF' > $HOME/clang-proxy/clang
+          #!/bin/bash
+          if [[ "$*" == *"-print-multi-os-directory"* ]]; then
+            echo "../lib"
+            exit 0
+          fi
+          exec /usr/bin/clang "$@" -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types -Wno-error=int-conversion
+          EOF
+          
+          # 2. Clang C++ Proxy
+          cat << 'EOF' > $HOME/clang-proxy/clang++
+          #!/bin/bash
+          if [[ "$*" == *"-print-multi-os-directory"* ]]; then
+            echo "../lib"
+            exit 0
+          fi
+          exec /usr/bin/clang++ "$@" -Wdeprecated-non-prototype -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types -Wno-error=int-conversion
+          EOF
+          
+          chmod +x $HOME/clang-proxy/clang $HOME/clang-proxy/clang++
+          
+          # 3. Suppress Legacy Hardcoded GNU Calls
+          ln -s $HOME/clang-proxy/clang $HOME/clang-proxy/gcc
+          ln -s $HOME/clang-proxy/clang $HOME/clang-proxy/cc
+          ln -s $HOME/clang-proxy/clang++ $HOME/clang-proxy/g++
+          ln -s $HOME/clang-proxy/clang++ $HOME/clang-proxy/c++
+          
+          echo "$HOME/clang-proxy" >> $GITHUB_PATH
 
       - name: Prepare Global Cached Directory Environment
         uses: hendrikmuhs/ccache-action@v1.2.23
@@ -48,25 +81,25 @@ jobs:
           curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
           curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
 
-      - name: Patch Configuration Errors Locally via Sed Replacements 
+      - name: Patch Configuration Errors Locally
         run: |
           cd blender
           
           # SQLite: Force Re-Configuration to wipe old internal dependencies against global Runner toolset 
-          # Guaranteed 100% resolve against the Autotools version mismatch crashing SQLite (while preserving Flex functions)
           sed -i 's|\${SRC_DIR}/configure|autoreconf -fiv \${SRC_DIR} \&\& \${SRC_DIR}/configure|g' build_files/build_environment/cmake/sqlite.cmake
           
-      - name: Launch Build Environments Execution Sandbox (Target - Libs) 
+      - name: Build Standalone Dependencies Sandbox (Native ARM64)
         run: |
           mkdir -p build_deps && cd build_deps
           
-          export CC=clang CXX=clang++ 
+          export CC="$HOME/clang-proxy/clang" 
+          export CXX="$HOME/clang-proxy/clang++"
           
-          # Directly feed native paths. Any subsequent internal GCC execution perfectly re-aligns automatically alongside ninja!
+          # Use absolute proxy paths to prevent CMake from escaping our sandbox
           cmake ../blender/build_files/build_environment -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=clang \
-            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER="$HOME/clang-proxy/clang" \
+            -DCMAKE_CXX_COMPILER="$HOME/clang-proxy/clang++" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DBUILD_OPENVDB=OFF \
@@ -79,16 +112,17 @@ jobs:
             
           ninja -j$(nproc)
 
-      - name: Build Core Output Applications Array Sandbox (Target - Final GUI Application Build)
+      - name: Build Core Render Binary (Native ARM64)
         run: |
           mkdir -p build_blender && cd build_blender
           
-          export CC=clang CXX=clang++
+          export CC="$HOME/clang-proxy/clang" 
+          export CXX="$HOME/clang-proxy/clang++"
           
           cmake ../blender -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=clang \
-            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER="$HOME/clang-proxy/clang" \
+            -DCMAKE_CXX_COMPILER="$HOME/clang-proxy/clang++" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_PREFIX_PATH="../build_deps/opt" \
@@ -110,13 +144,13 @@ jobs:
           ninja -j$(nproc)
           ninja install
 
-      - name: Package Extracted Client Software ZIP Output  
+      - name: Package Application Binary ZIP 
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64-app
           path: build_blender/bin/
 
-      - name: Output Environment Source Configuration Output Dependencies ZIP Array
+      - name: Package Extracted Dependencies Archive ZIP 
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64-deps
