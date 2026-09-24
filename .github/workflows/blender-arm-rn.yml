@@ -56,12 +56,12 @@ jobs:
           restore-keys: ${{ runner.os }}-ccache-
           max-size: 2G
 
-      #- name: Pre-download Dead FTP Dependencies
-        #run: |
-          #mkdir -p build_deps/packages
-          #curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
-          #curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
-          #curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
+      - name: Pre-download Dead FTP Dependencies
+        run: |
+          mkdir -p build_deps/packages
+          curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
+          curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
+          curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
 
       - name: Build Blender Dependencies (Native aarch64 Clang)
         run: |
