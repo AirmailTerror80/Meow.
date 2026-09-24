@@ -25,7 +25,6 @@ jobs:
       - name: Install Native Build Requirements (LLVM/Clang & GNU Tools)
         run: |
           sudo apt-get update
-          # Added gettext (for autopoint), pkg-config, and clang/llvm
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build ccache git subversion \
             curl xz-utils bzip2 patch bison yasm tcl autoconf automake \
@@ -63,12 +62,25 @@ jobs:
           curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
           curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
 
+      - name: Setup Clang Mask (Force Makefiles to use Clang)
+        run: |
+          # Create a fake bin directory that redirects gcc/cc to clang
+          mkdir -p $HOME/clang-bin
+          ln -s /usr/bin/clang $HOME/clang-bin/gcc
+          ln -s /usr/bin/clang $HOME/clang-bin/cc
+          ln -s /usr/bin/clang++ $HOME/clang-bin/g++
+          ln -s /usr/bin/clang++ $HOME/clang-bin/c++
+          echo "$HOME/clang-bin" >> $GITHUB_PATH
+
       - name: Build Blender Dependencies (Native aarch64 Clang)
         run: |
           mkdir -p build_deps
           cd build_deps
           
-          # Force Make-based dependencies (like SQLite/OpenSSL) to use clang instead of GNU gcc
+          # Fix tramp.c libffi error by telling Clang to allow implicit function declarations
+          export CFLAGS="-Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types"
+          export CXXFLAGS="-Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types"
+          
           export CC=clang
           export CXX=clang++
           
