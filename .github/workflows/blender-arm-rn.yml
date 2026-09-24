@@ -26,7 +26,6 @@ jobs:
         run: |
           sudo apt-get update
           
-          # Native requirements array carefully expanded to fulfill 'flex', 'sqlite', and GUI libraries 
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build ccache git subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake libtool m4 meson python3-mako patchelf gettext autopoint pkg-config \
@@ -44,16 +43,9 @@ jobs:
       - name: Target Native Compatibility Hot-Fixes
         run: |
           cd blender
+                    
+          sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-incompatible-function-pointer-types -Wno-int-conversion -Wno-implicit-int -fPIC ${PLATFORM_CFLAGS}")\nset(PLATFORM_CXXFLAGS "${PLATFORM_CFLAGS} ${PLATFORM_CXXFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
           
-          # 1. SQLite: Automatically synchronize and overwrite local older libtool version mismatched autotools inside the src zip
-          sed -i 's|cd \${BUILD_DIR} \&\& \${SRC_DIR}/configure|cd \${BUILD_DIR} \&\& autoreconf -fiv \${SRC_DIR} \&\& \${SRC_DIR}/configure|' build_files/build_environment/cmake/sqlite.cmake
-          
-          # 2. OpenSSL: Block runner OS interpretation and force explicit cross compiling parameters within Configure line dynamically
-          sed -i 's|\./config|\./Configure linux-aarch64 CC=clang|g' build_files/build_environment/cmake/ssl.cmake
-          
-          # 3. LibFFI: Dynamically append loose C-language flag instructions into external make systems strictly internally preventing 'tramp' build restrictions!
-          sed -i 's|\${SRC_DIR}/configure|\${SRC_DIR}/configure CFLAGS="-Wno-implicit-function-declaration -Wno-incompatible-function-pointer-types -Wno-int-conversion -Wno-implicit-int -fPIC" |g' build_files/build_environment/cmake/ffi.cmake
-
       - name: Prepare Global Ninja Accelerator State (CCACHE) 
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
@@ -64,12 +56,7 @@ jobs:
       - name: Native Sandbox Architecture Render Libraries Execute (aarch64) 
         run: |
           mkdir -p build_deps && cd build_deps
-          
-          # Enact Clang compilation suite globally and feed legacy Makefiles universally-inherited tolerant GNU attributes smoothly
-          export CC=clang CXX=clang++ 
-          export CFLAGS="-Wno-implicit-function-declaration -Wno-incompatible-function-pointer-types -Wno-int-conversion -Wno-implicit-int -fPIC"
-          export CXXFLAGS="$CFLAGS -std=c++17"
-          
+                    
           cmake ../blender/build_files/build_environment -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=clang \
@@ -92,7 +79,6 @@ jobs:
           
           export CC=clang CXX=clang++
           
-          # Pull safely completed local Linux library path maps effortlessly via build_deps 
           cmake ../blender -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=clang \
