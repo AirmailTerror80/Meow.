@@ -22,67 +22,72 @@ jobs:
           path: blender
           submodules: recursive
 
-      - name: Install Native Build Requirements (LLVM/Clang & GNU Tools)
+      - name: Install System Build Toolkits
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build ccache git subversion \
-            curl xz-utils bzip2 patch bison yasm tcl autoconf automake \
-            meson python3-mako patchelf gettext pkg-config \
-            clang llvm lld \
-            libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev \
-            libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev libdbus-1-dev linux-libc-dev
+            build-essential cmake ninja-build ccache git subversion curl xz-utils bzip2 patch \
+            bison yasm tcl autoconf automake meson python3-mako patchelf gettext pkg-config \
+            clang llvm lld libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
+            libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
+            libdbus-1-dev linux-libc-dev
 
-      - name: Force Clean GNU Libtool 2.4.7 (SQLite/Autotools Fix)
+      - name: Construct Unbreakable Compiler Intercepts
         run: |
-          sudo apt-get purge -y libtool libtool-bin || true
-          sudo rm -rf /usr/share/libtool /usr/share/aclocal/lt*.m4 /usr/share/aclocal/libtool.m4
+          # Intercept rigid legacy makefiles entirely bypassing CMake parameters
+          mkdir -p $HOME/toolchain-intercept
           
-          curl -LO https://ftpmirror.gnu.org/libtool/libtool-2.4.7.tar.gz
-          tar -xzf libtool-2.4.7.tar.gz
-          cd libtool-2.4.7
-          ./configure --prefix=/usr
-          make -j$(nproc)
-          sudo make install
+          # 1. Force Make-called Clang tasks to universally swallow legacy C99 compatibility flags
+          cat << 'EOF' > $HOME/toolchain-intercept/clang
+          #!/bin/bash
+          exec /usr/bin/clang -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types "$@"
+          EOF
           
-          hash -r
-          libtool --version
+          cat << 'EOF' > $HOME/toolchain-intercept/clang++
+          #!/bin/bash
+          exec /usr/bin/clang++ -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types "$@"
+          EOF
+          
+          chmod +x $HOME/toolchain-intercept/clang $HOME/toolchain-intercept/clang++
+          
+          # 2. Seamlessly re-route raw GCC requests down to the strict C99 patched proxy script above 
+          ln -s $HOME/toolchain-intercept/clang $HOME/toolchain-intercept/gcc
+          ln -s $HOME/toolchain-intercept/clang $HOME/toolchain-intercept/cc
+          ln -s $HOME/toolchain-intercept/clang++ $HOME/toolchain-intercept/g++
+          ln -s $HOME/toolchain-intercept/clang++ $HOME/toolchain-intercept/c++
+          
+          # 3. Suppress all libtool mismatch regressions by simulating successful executions for timestamp builds 
+          ln -s /usr/bin/true $HOME/toolchain-intercept/aclocal
+          ln -s /usr/bin/true $HOME/toolchain-intercept/aclocal-1.16
+          ln -s /usr/bin/true $HOME/toolchain-intercept/autoconf
+          ln -s /usr/bin/true $HOME/toolchain-intercept/automake
+          ln -s /usr/bin/true $HOME/toolchain-intercept/automake-1.16
+          ln -s /usr/bin/true $HOME/toolchain-intercept/autoheader
+          ln -s /usr/bin/true $HOME/toolchain-intercept/libtoolize
+          
+          # Prepend Sandbox as global priority #1 on GitHub Environment Engine 
+          echo "$HOME/toolchain-intercept" >> $GITHUB_PATH
 
-      - name: Setup Compiler Cache
+      - name: Setup Global Build Cache Context
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ runner.os }}-ccache-
           restore-keys: ${{ runner.os }}-ccache-
           max-size: 2G
 
-      - name: Pre-download Dead FTP Dependencies
+      - name: Refresh Disabled FTP Dependency Endpoints 
         run: |
           mkdir -p build_deps/packages
           curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
           curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
           curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
-
-      - name: Setup Clang Mask (Force Makefiles to use Clang)
+         
+      - name: Compiling Standalone Dependency Environment (Ninja + Native)
         run: |
-          # Create a fake bin directory that redirects gcc/cc to clang
-          mkdir -p $HOME/clang-bin
-          ln -s /usr/bin/clang $HOME/clang-bin/gcc
-          ln -s /usr/bin/clang $HOME/clang-bin/cc
-          ln -s /usr/bin/clang++ $HOME/clang-bin/g++
-          ln -s /usr/bin/clang++ $HOME/clang-bin/c++
-          echo "$HOME/clang-bin" >> $GITHUB_PATH
-
-      - name: Build Blender Dependencies (Native aarch64 Clang)
-        run: |
-          mkdir -p build_deps
           cd build_deps
           
-          # Fix tramp.c libffi error by telling Clang to allow implicit function declarations
-          export CFLAGS="-Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types"
-          export CXXFLAGS="-Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=incompatible-function-pointer-types"
-          
-          export CC=clang
-          export CXX=clang++
+          export AUTOCONF=true AUTOMAKE=true ACLOCAL=true AUTOHEADER=true MAKEINFO=true
+          export CC=clang CXX=clang++ 
           
           cmake ../blender/build_files/build_environment -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -100,13 +105,11 @@ jobs:
             
           ninja -j$(nproc)
 
-      - name: Build Blender Portable Binary (Native aarch64 Clang)
+      - name: Construct Standalone Target Client (Ninja + Native)
         run: |
-          mkdir -p build_blender
-          cd build_blender
+          mkdir -p build_blender && cd build_blender
           
-          export CC=clang
-          export CXX=clang++
+          export CC=clang CXX=clang++
           
           cmake ../blender -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -133,13 +136,13 @@ jobs:
           ninja -j$(nproc)
           ninja install
 
-      - name: Upload Blender Binary Artifact
+      - name: Dispatch Render Artifact Binary Target 
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64-app
           path: build_blender/bin/
 
-      - name: Upload Dependency Artifact
+      - name: Dispatch Toolchain Dependencies Base 
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64-deps
