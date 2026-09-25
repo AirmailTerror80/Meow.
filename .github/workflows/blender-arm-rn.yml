@@ -58,8 +58,22 @@ jobs:
 
       - name: Build Environment Dependencies (GCC + Unix Makefiles) 
         run: |
+          mkdir -p bin
+          for cmd in aclocal autoconf automake autoheader libtoolize autoreconf; do
+            echo '#!/bin/bash' > bin/$cmd
+            echo 'if [[ "$PWD" == *"sqlite"* ]]; then' >> bin/$cmd
+            echo '    echo "Bypassing $(basename $0) for SQLite..."' >> bin/$cmd
+            echo '    exit 0' >> bin/$cmd
+            echo 'else' >> bin/$cmd
+            echo '    exec /usr/bin/$(basename $0) "$@"' >> bin/$cmd
+            echo 'fi' >> bin/$cmd
+            chmod +x bin/$cmd
+          done
+          
+          export PATH="$(pwd)/bin:$PATH"
+          
           mkdir -p build_deps && cd build_deps
-                    
+          
           export CXXFLAGS="-Wno-changes-meaning"
           export CC=gcc CXX=g++
           
