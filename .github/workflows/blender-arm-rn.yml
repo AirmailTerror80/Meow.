@@ -31,7 +31,7 @@ jobs:
             bison yasm tcl autoconf automake libtool m4 meson python3-mako patchelf gettext autopoint pkg-config \
             clang llvm lld libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
-            libdbus-1-dev linux-libc-dev
+            libdbus-1-dev linux-libc-dev libpulse-dev libasound2-dev
 
       - name: Bridge Pre-Downloaded Missing FTP Archives 
         run: |
