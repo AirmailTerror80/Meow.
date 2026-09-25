@@ -31,7 +31,7 @@ jobs:
             bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint pkg-config \
             clang llvm lld libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
-            libdbus-1-dev linux-libc-dev
+            libdbus-1-dev linux-libc-dev libpulse-dev libasound2-dev libjack-dev libpipewire-0.3-dev
 
       - name: Build and Install Modern Libtool (2.4.7) Globally
         run: |
@@ -55,7 +55,6 @@ jobs:
       - name: Target Native Compatibility Hot-Fixes
         run: |
           cd blender
-          
           sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
       
       - name: Prepare Global Compiler Accelerator State (CCACHE) 
@@ -63,7 +62,7 @@ jobs:
         with:
           key: ${{ runner.os }}-ccache
           restore-keys: ${{ runner.os }}-ccache
-          max-size: 2G
+          max-size: 4G
 
       - name: Build Environment Dependencies (GCC + Unix Makefiles) 
         run: |
@@ -129,5 +128,4 @@ jobs:
         with:
           name: blender-4.2.23-aarch64-deps
           path: |
-              build_deps/opt/
-              build_deps/linux*
+            build_deps/opt
