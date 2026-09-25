@@ -31,19 +31,8 @@ jobs:
             bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint pkg-config \
             clang llvm lld libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
-            libdbus-1-dev linux-libc-dev libpulse-dev libasound2-dev libjack-dev libpipewire-0.3-dev
-
-      - name: Build and Install Modern Libtool (2.4.7) Globally
-        run: |
-          curl -sL "https://ftpmirror.gnu.org/libtool/libtool-2.4.7.tar.gz" -o libtool.tar.gz
-          tar -xzf libtool.tar.gz
-          cd libtool-2.4.7
-          
-          ./configure --prefix=/usr
-          make -j$(nproc)
-          sudo make install
-          
-          libtool --version
+            libdbus-1-dev linux-libc-dev libpulse-dev libasound2-dev libjack-dev libpipewire-0.3-dev \
+            libtool libtool-bin autotools-dev
 
       - name: Bridge Pre-Downloaded Missing FTP Archives 
         run: |
@@ -60,8 +49,8 @@ jobs:
       - name: Prepare Global Compiler Accelerator State (CCACHE) 
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-ccache
-          restore-keys: ${{ runner.os }}-ccache
+          key: ${{ runner.os }}-aarch64-ccache-
+          restore-keys: ${{ runner.os }}-aarch64-ccache
           max-size: 4G
 
       - name: Build Environment Dependencies (GCC + Unix Makefiles) 
@@ -127,5 +116,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64-deps
-          path: |
-            build_deps/opt
+          path: build_deps/opt
