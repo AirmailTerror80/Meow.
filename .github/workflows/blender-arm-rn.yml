@@ -47,7 +47,7 @@ jobs:
           
           sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
           sed -i '1s|^|set(PLATFORM_CXXFLAGS "-Wno-changes-meaning -Wno-error=changes-meaning -fpermissive -fPIC ${PLATFORM_CXXFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
-
+          
           if [ -f "build_files/build_environment/cmake/gmp.cmake" ]; then
              sed -i 's/--disable-assembly/--disable-assembly --disable-fat/g' build_files/build_environment/cmake/gmp.cmake || true
           fi
@@ -55,10 +55,19 @@ jobs:
           if [ -f "build_files/build_environment/cmake/gmmlib.cmake" ]; then
              sed -i '/CMAKE_ARGS/a\    -DRUN_TEST_SUITE=OFF\n    -DRUN_ULT=OFF' build_files/build_environment/cmake/gmmlib.cmake || true
           fi
- 
-          if [ -f "build_files/build_environment/cmake/vorbis.cmake" ]; then
-             sed -i 's/--with-ogg/--disable-oggtest --with-ogg/g' build_files/build_environment/cmake/vorbis.cmake || true
-          fi
+
+          for configure_test_pkg in vorbis theora; do
+            if [ -f "build_files/build_environment/cmake/${configure_test_pkg}.cmake" ]; then
+               sed -i 's/--with-ogg/--disable-oggtest --with-ogg/g' build_files/build_environment/cmake/${configure_test_pkg}.cmake || true
+               sed -i 's/\.\/configure /\.\/configure --build=aarch64-unknown-linux-gnu /g' build_files/build_environment/cmake/${configure_test_pkg}.cmake || true
+            fi
+          done
+
+          for x86_only_intel in igc intel_compute_runtime dpcpp level_zero embree openpgl oidn ospray sycl; do
+             if [ -f "build_files/build_environment/cmake/${x86_only_intel}.cmake" ]; then
+                echo "add_custom_target(external_${x86_only_intel})" > "build_files/build_environment/cmake/${x86_only_intel}.cmake"
+             fi
+          done
 
       - name: Prepare Global Compiler Accelerator State (CCACHE) 
         uses: hendrikmuhs/ccache-action@v1.2.23
@@ -72,7 +81,6 @@ jobs:
           mkdir -p bin
           for cmd in aclocal autoconf automake autoheader libtoolize autoreconf automake-1.15 aclocal-1.15 automake-1.16 aclocal-1.16 autom4te; do
             echo '#!/bin/bash' > bin/$cmd
-            # Add explicitly standard interceptors preventing GLU rebuilding creatively smoothly natively mismatches implicitly gracefully recursively
             echo 'if [[ "$PWD" == *"sqlite"* ]] || [[ "$PWD" == *"glu"* ]] || [[ "$PWD" == *"libglu"* ]]; then' >> bin/$cmd
             echo '    echo "Bypassing $(basename $0) to avoid dynamic dependency timestamp triggers mismatches cleanly properly natively recursively out... "' >> bin/$cmd
             echo '    exit 0' >> bin/$cmd
