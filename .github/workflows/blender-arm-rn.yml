@@ -57,6 +57,14 @@ jobs:
         run: |
           mkdir -p build_deps && cd build_deps
           
+          export ACLOCAL=true 
+          export AUTOCONF=true 
+          export AUTOMAKE=true 
+          export AUTOHEADER=true 
+          export MAKEINFO=true
+          export LIBTOOLIZE=true
+          export AUTORECONF=true
+          
           export CC=gcc CXX=g++
           
           cmake ../blender/build_files/build_environment \
