@@ -43,8 +43,11 @@ jobs:
       - name: Target Native Compatibility Hot-Fixes
         run: |
           cd blender
+          
+          sed -i 's|\${SRC_DIR}/configure|cd \${SRC_DIR} \&\& rm -rf aclocal.m4 autom4te.cache m4/libtool.m4 m4/lt*.m4 ltmain.sh configure \&\& libtoolize --force --copy \&\& autoreconf -fiv \&\& cd \${BUILD_DIR} \&\& \${SRC_DIR}/configure|g' build_files/build_environment/cmake/sqlite.cmake
+
           sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
-      
+          
       - name: Prepare Global Compiler Accelerator State (CCACHE) 
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
