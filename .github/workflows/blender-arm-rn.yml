@@ -28,10 +28,22 @@ jobs:
           
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
-            bison yasm tcl autoconf automake libtool m4 meson python3-mako patchelf gettext autopoint pkg-config \
+            bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint pkg-config \
             clang llvm lld libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
-            libdbus-1-dev linux-libc-dev libpulse-dev libasound2-dev
+            libdbus-1-dev linux-libc-dev
+
+      - name: Build and Install Modern Libtool (2.4.7) Globally
+        run: |
+          curl -sL "https://ftpmirror.gnu.org/libtool/libtool-2.4.7.tar.gz" -o libtool.tar.gz
+          tar -xzf libtool.tar.gz
+          cd libtool-2.4.7
+          
+          ./configure --prefix=/usr
+          make -j$(nproc)
+          sudo make install
+          
+          libtool --version
 
       - name: Bridge Pre-Downloaded Missing FTP Archives 
         run: |
@@ -44,10 +56,8 @@ jobs:
         run: |
           cd blender
           
-          sed -i 's|\${SRC_DIR}/configure|cd \${SRC_DIR} \&\& rm -rf aclocal.m4 autom4te.cache m4/libtool.m4 m4/lt*.m4 ltmain.sh configure \&\& libtoolize --force --copy \&\& autoreconf -fiv \&\& cd \${BUILD_DIR} \&\& \${SRC_DIR}/configure|g' build_files/build_environment/cmake/sqlite.cmake
-
           sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
-          
+      
       - name: Prepare Global Compiler Accelerator State (CCACHE) 
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
@@ -74,7 +84,7 @@ jobs:
             -DBUILD_USD=OFF \
             -DBUILD_ALEMBIC=OFF \
             -DBUILD_MATERIALX=OFF
-
+            
           make -j$(nproc)
 
       - name: Build Target Blender Binary (Clang + Unix Makefiles) 
@@ -119,5 +129,5 @@ jobs:
         with:
           name: blender-4.2.23-aarch64-deps
           path: |
-            build_deps/linux*
-            build_deps/opt
+              build_deps/opt/
+              build_deps/linux*
