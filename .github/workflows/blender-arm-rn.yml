@@ -47,8 +47,8 @@ jobs:
           
           sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
           
-          sed -i '1s|^|set(PLATFORM_CXXFLAGS "-fpermissive -fPIC ${PLATFORM_CXXFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
-      
+          sed -i '1s|^|set(PLATFORM_CXXFLAGS "-Wno-changes-meaning -Wno-error=changes-meaning -fpermissive -fPIC ${PLATFORM_CXXFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
+          
       - name: Prepare Global Compiler Accelerator State (CCACHE) 
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
@@ -68,6 +68,7 @@ jobs:
           export LIBTOOLIZE=true
           export AUTORECONF=true
           
+          export CXXFLAGS="-Wno-changes-meaning"
           export CC=gcc CXX=g++
           
           cmake ../blender/build_files/build_environment \
