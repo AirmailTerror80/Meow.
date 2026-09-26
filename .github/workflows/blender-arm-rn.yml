@@ -34,7 +34,7 @@ jobs:
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
             libdbus-1-dev linux-libc-dev libpulse-dev libasound2-dev libjack-dev libpipewire-0.3-dev \
             libtool libtool-bin autotools-dev uuid-dev libffi-dev \
-            libgles2-dev libgl1-mesa-dev libgl-dev libglu1-mesa-dev libdrm-dev libgbm-dev \
+            libgl1-mesa-dev libgl-dev libglu1-mesa-dev libdrm-dev libgbm-dev \
             libudev-dev libinput-dev libevdev-dev libmtdev-dev libseat-dev \
             libvulkan-dev glslang-dev glslang-tools spirv-tools libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxcb-xkb-dev libxcb-keysyms1-dev \
