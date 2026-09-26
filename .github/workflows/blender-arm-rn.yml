@@ -32,7 +32,8 @@ jobs:
             clang llvm lld libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
             libdbus-1-dev linux-libc-dev libpulse-dev libasound2-dev libjack-dev libpipewire-0.3-dev \
-            libtool libtool-bin autotools-dev libxt-dev libpixman-1-dev libinput-dev libudev-dev libdrm-dev
+            libtool libtool-bin autotools-dev libxt-dev libpixman-1-dev libinput-dev libudev-dev libdrm-dev \
+            libcairo2-dev libpango1.0-dev libgbm-dev libjpeg-dev libpng-dev libgif-dev libwebp-dev
 
       - name: Bridge Pre-Downloaded Missing FTP Archives 
         run: |
@@ -67,7 +68,7 @@ jobs:
                sed -i 's/--with-ogg/--disable-oggtest --with-ogg/g' build_files/build_environment/cmake/${configure_test_pkg}.cmake || true
             fi
           done
-         
+          
           for x86_only_intel in ocloc igc intel_compute_runtime dpcpp level_zero embree openpgl oidn ospray sycl; do
              if [ -f "build_files/build_environment/cmake/${x86_only_intel}.cmake" ]; then
                 echo "add_custom_target(external_${x86_only_intel})" > "build_files/build_environment/cmake/${x86_only_intel}.cmake"
@@ -78,7 +79,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ runner.os }}-aarch64-ccache-
-          restore-keys: ${{ runner.os }}-aarch64-ccache--2026-09-26T15:16:44.168Z 
+          restore-keys: ${{ runner.os }}-aarch64-ccache--2026-09-26T17:43:03.400Z
           max-size: 4G
 
       - name: Build Environment Dependencies (GCC + Unix Makefiles) 
