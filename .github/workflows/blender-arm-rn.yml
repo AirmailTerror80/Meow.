@@ -26,14 +26,19 @@ jobs:
         run: |
           sudo apt-get update
           
-          sudo apt-get install -y --no-install-recommends \
+          sudo apt-get install -y \
             build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
-            bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint pkg-config \
-            clang llvm lld libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
+            bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint \
+            pkg-config clang llvm lld ninja-build xutils-dev xsltproc xmlto python3-docutils \
+            libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
             libdbus-1-dev linux-libc-dev libpulse-dev libasound2-dev libjack-dev libpipewire-0.3-dev \
-            libtool libtool-bin autotools-dev libxt-dev libpixman-1-dev libinput-dev libudev-dev libdrm-dev \
-            libcairo2-dev libpango1.0-dev libgbm-dev libjpeg-dev libpng-dev libgif-dev libwebp-dev
+            libtool libtool-bin autotools-dev uuid-dev libffi-dev \
+            libgles2-dev libgl1-mesa-dev libgl-dev libglu1-mesa-dev libdrm-dev libgbm-dev \
+            libudev-dev libinput-dev libevdev-dev libmtdev-dev libseat-dev \
+            libvulkan-dev glslang-dev glslang-tools spirv-tools libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxcb-xkb-dev libxcb-keysyms1-dev \
+            libsystemd-dev libpam0g-dev libjpeg-dev libpng-dev libwebp-dev libcairo2-dev libpango1.0-dev xwayland
 
       - name: Bridge Pre-Downloaded Missing FTP Archives 
         run: |
@@ -68,7 +73,7 @@ jobs:
                sed -i 's/--with-ogg/--disable-oggtest --with-ogg/g' build_files/build_environment/cmake/${configure_test_pkg}.cmake || true
             fi
           done
-          
+         
           for x86_only_intel in ocloc igc intel_compute_runtime dpcpp level_zero embree openpgl oidn ospray sycl; do
              if [ -f "build_files/build_environment/cmake/${x86_only_intel}.cmake" ]; then
                 echo "add_custom_target(external_${x86_only_intel})" > "build_files/build_environment/cmake/${x86_only_intel}.cmake"
@@ -79,7 +84,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ runner.os }}-aarch64-ccache-
-          restore-keys: ${{ runner.os }}-aarch64-ccache--2026-09-26T17:43:03.400Z
+          restore-keys: ${{ runner.os }}-aarch64-ccache
           max-size: 4G
 
       - name: Build Environment Dependencies (GCC + Unix Makefiles) 
