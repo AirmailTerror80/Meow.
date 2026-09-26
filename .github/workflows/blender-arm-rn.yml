@@ -55,6 +55,16 @@ jobs:
           if [ -f "build_files/build_environment/cmake/gmmlib.cmake" ]; then
              sed -i '/CMAKE_ARGS/a\    -DRUN_TEST_SUITE=OFF\n    -DRUN_ULT=OFF' build_files/build_environment/cmake/gmmlib.cmake || true
           fi
+          
+          sed -i 's/configure --/configure --build=aarch64-unknown-linux-gnu --/g' build_files/build_environment/cmake/*.cmake
+          
+          sed -i 's/--build=aarch64-unknown-linux-gnu --build=/--build=/g' build_files/build_environment/cmake/*.cmake
+          
+          for configure_test_pkg in vorbis theora; do
+            if [ -f "build_files/build_environment/cmake/${configure_test_pkg}.cmake" ]; then
+               sed -i 's/--with-ogg/--disable-oggtest --with-ogg/g' build_files/build_environment/cmake/${configure_test_pkg}.cmake || true
+            fi
+          done
          
           for x86_only_intel in ocloc igc intel_compute_runtime dpcpp level_zero embree openpgl oidn ospray sycl; do
              if [ -f "build_files/build_environment/cmake/${x86_only_intel}.cmake" ]; then
