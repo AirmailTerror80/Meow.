@@ -1,4 +1,4 @@
-name: Native Build Blender 4.2 LTS (aarch64)
+name: Native Build Blender 4.2 LTS
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
           path: blender
           submodules: recursive
 
-      - name: Prepare Clean Native Server Repositories 
+      - name: Prepare Native Server Repositories 
         run: |
           sudo apt-get update
           
@@ -42,8 +42,8 @@ jobs:
             libxt-dev libsm-dev libice-dev libxaw7-dev libxpm-dev libepoxy-dev \
             libxml2-dev libtinyxml2-dev libssl-dev libcurl4-openssl-dev libsqlite3-dev \
             libbz2-dev liblzma-dev zlib1g-dev libxrender-dev libxft-dev libx11-xcb-dev \
-            libxcb-dri3-dev libxcb-present-dev libxshmfence-dev
-
+            libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev
+            
       - name: Bridge Pre-Downloaded Missing FTP Archives 
         run: |
           mkdir -p build_deps/packages
@@ -78,26 +78,25 @@ jobs:
             fi
           done
          
-          for x86_only_intel in ocloc igc intel_compute_runtime dpcpp level_zero embree openpgl oidn ospray sycl; do
-             if [ -f "build_files/build_environment/cmake/${x86_only_intel}.cmake" ]; then
-                echo "add_custom_target(external_${x86_only_intel})" > "build_files/build_environment/cmake/${x86_only_intel}.cmake"
+          for intel_gpu_only in ocloc igc intel_compute_runtime dpcpp level_zero sycl; do
+             if [ -f "build_files/build_environment/cmake/${intel_gpu_only}.cmake" ]; then
+                echo "add_custom_target(external_${intel_gpu_only})" > "build_files/build_environment/cmake/${intel_gpu_only}.cmake"
              fi
           done
 
       - name: Prepare Global Compiler Accelerator State (CCACHE) 
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-aarch64-ccache-
-          restore-keys: ${{ runner.os }}-aarch64-ccache
-          max-size: 4G
+          key: ${{ runner.os }}-aarch64-ccache-full-stack-
+          restore-keys: ${{ runner.os }}-aarch64-ccache-full-stack
+          max-size: 8G 
 
-      - name: Build Environment Dependencies (GCC + Unix Makefiles) 
+      - name: Build Complete Native Environment Dependencies
         run: |
           mkdir -p bin
           for cmd in aclocal autoconf automake autoheader libtoolize autoreconf automake-1.15 aclocal-1.15 automake-1.16 aclocal-1.16 autom4te; do
             echo '#!/bin/bash' > bin/$cmd
             echo 'if [[ "$PWD" == *"sqlite"* ]] || [[ "$PWD" == *"glu"* ]] || [[ "$PWD" == *"libglu"* ]]; then' >> bin/$cmd
-            echo '    echo "Bypassing $(basename $0) to avoid dynamic dependency timestamp triggers mismatches cleanly properly natively recursively out... "' >> bin/$cmd
             echo '    exit 0' >> bin/$cmd
             echo 'else' >> bin/$cmd
             echo '    if [ -x "/usr/bin/$(basename $0)" ]; then' >> bin/$cmd
@@ -115,6 +114,7 @@ jobs:
           mkdir -p build_deps && cd build_deps
           
           export CXXFLAGS="-Wno-changes-meaning"
+          export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           export CC=gcc CXX=g++
           
           cmake ../blender/build_files/build_environment \
@@ -123,19 +123,11 @@ jobs:
             -DCMAKE_CXX_COMPILER=g++ \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DBUILD_OPENVDB=OFF \
-            -DBUILD_EMBREE=OFF \
-            -DBUILD_OSL=OFF \
-            -DBUILD_OIDN=OFF \
-            -DBUILD_USD=OFF \
-            -DBUILD_ALEMBIC=OFF \
-            -DBUILD_MATERIALX=OFF \
-            -DBUILD_OPENPGL=OFF \
             -DBUILD_SYCL=OFF
             
           make -j$(nproc)
 
-      - name: Build Target Blender Binary (Clang + Unix Makefiles) 
+      - name: Build Target Blender Binary
         run: |
           mkdir -p build_blender && cd build_blender
           
@@ -153,28 +145,19 @@ jobs:
             -DWITH_CYCLES_DEVICE_CUDA=OFF \
             -DWITH_CYCLES_DEVICE_OPTIX=OFF \
             -DWITH_CYCLES_DEVICE_HIP=OFF \
-            -DWITH_CYCLES_DEVICE_SYCL=OFF \
-            -DWITH_CYCLES_EMBREE=OFF \
-            -DWITH_CYCLES_OSL=OFF \
-            -DWITH_OPENVDB=OFF \
-            -DWITH_NANOVDB=OFF \
-            -DWITH_OPENIMAGEDENOISE=OFF \
-            -DWITH_USD=OFF \
-            -DWITH_ALEMBIC=OFF \
-            -DWITH_MATERIALX=OFF \
-            -DWITH_CYCLES_PATH_GUIDING=OFF
+            -DWITH_CYCLES_DEVICE_SYCL=OFF
             
           make -j$(nproc)
           make install
 
-      - name: Dispatch Clean Executable Software Portable Deployment Zip Payload  
+      - name: Dispatch Executable App Bundle
         uses: actions/upload-artifact@v4
         with:
-          name: blender-4.2.23-aarch64-app
+          name: blender-4.2.23-aarch64
           path: build_blender/bin/
 
-      - name: Provide Completed Cross Dependency Reference Outputs Source Structure  
+      - name: Dispatch Compiled Dependencies
         uses: actions/upload-artifact@v4
         with:
-          name: blender-4.2.23-aarch64-deps
+          name: blender-4.2.23-aarch64
           path: build_deps/opt
