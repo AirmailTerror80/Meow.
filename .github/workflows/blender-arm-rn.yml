@@ -1,4 +1,4 @@
-name: Native Build Blender 4.2 LTS
+name: Native Build Blender 4.2 LTS (aarch64 Full Stack Clang)
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
           path: blender
           submodules: recursive
 
-      - name: Prepare Native Server Repositories 
+      - name: Enable Multi-Arch and Prepare Native Server Repositories 
         run: |
           sudo apt-get update
           
@@ -43,7 +43,7 @@ jobs:
             libxml2-dev libtinyxml2-dev libssl-dev libcurl4-openssl-dev libsqlite3-dev \
             libbz2-dev liblzma-dev zlib1g-dev libxrender-dev libxft-dev libx11-xcb-dev \
             libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev
-            
+
       - name: Bridge Pre-Downloaded Missing FTP Archives 
         run: |
           mkdir -p build_deps/packages
@@ -55,8 +55,8 @@ jobs:
         run: |
           cd blender
           
-          sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
-          sed -i '1s|^|set(PLATFORM_CXXFLAGS "-Wno-changes-meaning -Wno-error=changes-meaning -fpermissive -fPIC ${PLATFORM_CXXFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
+          sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -Wno-unknown-warning-option -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
+          sed -i '1s|^|set(PLATFORM_CXXFLAGS "-Wno-changes-meaning -Wno-error=changes-meaning -Wno-unknown-warning-option -fpermissive -fPIC ${PLATFORM_CXXFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
           
           if [ -f "build_files/build_environment/cmake/gmp.cmake" ]; then
              sed -i 's/--disable-assembly/--disable-assembly --disable-fat/g' build_files/build_environment/cmake/gmp.cmake || true
@@ -78,6 +78,15 @@ jobs:
             fi
           done
          
+          for f in build_files/build_environment/cmake/*.cmake; do
+            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/clang|-DCMAKE_C_COMPILER=clang|g' "$f"
+            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/clang++|-DCMAKE_CXX_COMPILER=clang++|g' "$f"
+            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/icx|-DCMAKE_C_COMPILER=clang|g' "$f"
+            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/icpx|-DCMAKE_CXX_COMPILER=clang++|g' "$f"
+            sed -i 's/-DEMBREE_SYCL_SUPPORT=ON/-DEMBREE_SYCL_SUPPORT=OFF/g' "$f"
+            sed -i 's/-DOIDN_DEVICE_SYCL=ON/-DOIDN_DEVICE_SYCL=OFF/g' "$f"
+          done
+          
           for intel_gpu_only in ocloc igc intel_compute_runtime dpcpp level_zero sycl; do
              if [ -f "build_files/build_environment/cmake/${intel_gpu_only}.cmake" ]; then
                 echo "add_custom_target(external_${intel_gpu_only})" > "build_files/build_environment/cmake/${intel_gpu_only}.cmake"
@@ -89,9 +98,9 @@ jobs:
         with:
           key: ${{ runner.os }}-aarch64-ccache-full-stack-
           restore-keys: ${{ runner.os }}-aarch64-ccache-full-stack
-          max-size: 8G 
+          max-size: 8G
 
-      - name: Build Complete Native Environment Dependencies
+      - name: Build Complete Environment Dependencies (Clang + Unix Makefiles)
         run: |
           mkdir -p bin
           for cmd in aclocal autoconf automake autoheader libtoolize autoreconf automake-1.15 aclocal-1.15 automake-1.16 aclocal-1.16 autom4te; do
@@ -110,17 +119,18 @@ jobs:
           done
           
           export PATH="$(pwd)/bin:$PATH"
+          export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
           mkdir -p build_deps && cd build_deps
           
-          export CXXFLAGS="-Wno-changes-meaning"
-          export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
-          export CC=gcc CXX=g++
+          export CXXFLAGS="-Wno-changes-meaning -Wno-unknown-warning-option -fPIC"
+          export CFLAGS="-Wno-unknown-warning-option -fPIC"
+          export CC=clang CXX=clang++
           
           cmake ../blender/build_files/build_environment \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=gcc \
-            -DCMAKE_CXX_COMPILER=g++ \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DBUILD_SYCL=OFF
@@ -159,5 +169,5 @@ jobs:
       - name: Dispatch Compiled Dependencies
         uses: actions/upload-artifact@v4
         with:
-          name: blender-4.2.23-aarch64
+          name: blender-4.2.23-aarch64-deps
           path: build_deps/opt
