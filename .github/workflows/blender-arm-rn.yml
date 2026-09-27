@@ -53,6 +53,11 @@ jobs:
 
       - name: Target Native Compatibility Hot-Fixes
         run: |
+          sudo ln -sf /usr/include/aarch64-linux-gnu/bits /usr/include/bits
+          sudo ln -sf /usr/include/aarch64-linux-gnu/gnu /usr/include/gnu
+          sudo ln -sf /usr/include/aarch64-linux-gnu/sys /usr/include/sys
+          sudo ln -sf /usr/include/aarch64-linux-gnu/asm /usr/include/asm
+          
           cd blender
           
           sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
