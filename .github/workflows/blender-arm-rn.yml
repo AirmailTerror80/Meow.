@@ -1,4 +1,4 @@
-name: Native Build Blender 4.2 LTS (aarch64 Full Stack Clang)
+name: Native Build Blender 4.2 LTS
 
 on:
   push:
@@ -22,14 +22,14 @@ jobs:
           path: blender
           submodules: recursive
 
-      - name: Enable Multi-Arch and Prepare Native Server Repositories 
+      - name: Prepare Native Server Repositories 
         run: |
           sudo apt-get update
           
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint \
-            pkg-config clang llvm lld ninja-build xutils-dev xsltproc xmlto python3-docutils \
+            pkg-config ninja-build xutils-dev xsltproc xmlto python3-docutils \
             libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
             libdbus-1-dev linux-libc-dev libpulse-dev libasound2-dev libjack-dev libpipewire-0.3-dev \
@@ -55,8 +55,8 @@ jobs:
         run: |
           cd blender
           
-          sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -Wno-unknown-warning-option -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
-          sed -i '1s|^|set(PLATFORM_CXXFLAGS "-Wno-changes-meaning -Wno-error=changes-meaning -Wno-unknown-warning-option -fpermissive -fPIC ${PLATFORM_CXXFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
+          sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
+          sed -i '1s|^|set(PLATFORM_CXXFLAGS "-Wno-changes-meaning -Wno-error=changes-meaning -fpermissive -fPIC ${PLATFORM_CXXFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
           
           if [ -f "build_files/build_environment/cmake/gmp.cmake" ]; then
              sed -i 's/--disable-assembly/--disable-assembly --disable-fat/g' build_files/build_environment/cmake/gmp.cmake || true
@@ -79,14 +79,14 @@ jobs:
           done
          
           for f in build_files/build_environment/cmake/*.cmake; do
-            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/clang|-DCMAKE_C_COMPILER=clang|g' "$f"
-            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/clang++|-DCMAKE_CXX_COMPILER=clang++|g' "$f"
-            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/icx|-DCMAKE_C_COMPILER=clang|g' "$f"
-            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/icpx|-DCMAKE_CXX_COMPILER=clang++|g' "$f"
+            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/clang|-DCMAKE_C_COMPILER=gcc|g' "$f"
+            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/clang++|-DCMAKE_CXX_COMPILER=g++|g' "$f"
+            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/icx|-DCMAKE_C_COMPILER=gcc|g' "$f"
+            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/icpx|-DCMAKE_CXX_COMPILER=g++|g' "$f"
             sed -i 's/-DEMBREE_SYCL_SUPPORT=ON/-DEMBREE_SYCL_SUPPORT=OFF/g' "$f"
             sed -i 's/-DOIDN_DEVICE_SYCL=ON/-DOIDN_DEVICE_SYCL=OFF/g' "$f"
           done
-          
+         
           for intel_gpu_only in ocloc igc intel_compute_runtime dpcpp level_zero sycl; do
              if [ -f "build_files/build_environment/cmake/${intel_gpu_only}.cmake" ]; then
                 echo "add_custom_target(external_${intel_gpu_only})" > "build_files/build_environment/cmake/${intel_gpu_only}.cmake"
@@ -96,11 +96,11 @@ jobs:
       - name: Prepare Global Compiler Accelerator State (CCACHE) 
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-aarch64-ccache-full-stack-
-          restore-keys: ${{ runner.os }}-aarch64-ccache-full-stack
-          max-size: 8G
+          key: ${{ runner.os }}-aarch64-ccache-
+          restore-keys: ${{ runner.os }}-aarch64-ccache
+          max-size: 8G 
 
-      - name: Build Complete Environment Dependencies (Clang + Unix Makefiles)
+      - name: Build Complete Environment Dependencies (GCC + Unix Makefiles)
         run: |
           mkdir -p bin
           for cmd in aclocal autoconf automake autoheader libtoolize autoreconf automake-1.15 aclocal-1.15 automake-1.16 aclocal-1.16 autom4te; do
@@ -119,18 +119,18 @@ jobs:
           done
           
           export PATH="$(pwd)/bin:$PATH"
-          export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
           mkdir -p build_deps && cd build_deps
           
-          export CXXFLAGS="-Wno-changes-meaning -Wno-unknown-warning-option -fPIC"
-          export CFLAGS="-Wno-unknown-warning-option -fPIC"
-          export CC=clang CXX=clang++
+          export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC"
+          export CFLAGS="-fPIC"
+          export CC=gcc CXX=g++
+          export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
           cmake ../blender/build_files/build_environment \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=clang \
-            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++ \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DBUILD_SYCL=OFF
@@ -141,12 +141,11 @@ jobs:
         run: |
           mkdir -p build_blender && cd build_blender
           
-          export CC=clang CXX=clang++
+          export CC=gcc CXX=g++
           
-          cmake ../blender \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=clang \
-            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++ \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_PREFIX_PATH="../build_deps/opt" \
