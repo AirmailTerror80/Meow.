@@ -34,12 +34,12 @@ jobs:
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
             libdbus-1-dev linux-libc-dev libpulse-dev libasound2-dev libjack-dev libpipewire-0.3-dev \
             libtool libtool-bin autotools-dev uuid-dev libffi-dev \
-            libgles2-dev libgl1-mesa-dev libgl-dev libglu1-mesa-dev libdrm-dev libgbm-dev \
+            libgles-dev libgl1-mesa-dev libgl-dev libglu1-mesa-dev libdrm-dev libgbm-dev \
             libudev-dev libinput-dev libevdev-dev libmtdev-dev libseat-dev \
             libvulkan-dev glslang-dev glslang-tools spirv-tools libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxcb-xkb-dev libxcb-keysyms1-dev \
             libsystemd-dev libpam0g-dev libjpeg-dev libpng-dev libwebp-dev libcairo2-dev libpango1.0-dev xwayland \
-            libxt-dev libsm-dev libice-dev libxaw7-dev libxpm-dev libepoxy-dev libwayland-egl1-wayland-dev \
+            libxt-dev libsm-dev libice-dev libxaw7-dev libxpm-dev libepoxy-dev \
             libxml2-dev libtinyxml2-dev libssl-dev libcurl4-openssl-dev libsqlite3-dev \
             libbz2-dev liblzma-dev zlib1g-dev libxrender-dev libxft-dev libx11-xcb-dev \
             libxcb-dri3-dev libxcb-present-dev libxshmfence-dev
