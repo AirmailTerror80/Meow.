@@ -44,7 +44,7 @@ jobs:
             libbz2-dev liblzma-dev zlib1g-dev libxrender-dev libxft-dev libx11-xcb-dev \
             libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev
 
-            sudo apt-get install -y --no-install-recommends \
+          sudo apt-get install -y --no-install-recommends \
             gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
             libc6-dev-armhf-cross linux-libc-dev-armhf-cross
 
@@ -57,7 +57,6 @@ jobs:
 
       - name: Target Native Compatibility Hot-Fixes
         run: |
-          
           cd blender
           
           sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
@@ -82,15 +81,6 @@ jobs:
                sed -i 's/--with-ogg/--disable-oggtest --with-ogg/g' build_files/build_environment/cmake/${configure_test_pkg}.cmake || true
             fi
           done
-         
-          for f in build_files/build_environment/cmake/*.cmake; do
-            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/clang|-DCMAKE_C_COMPILER=gcc|g' "$f"
-            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/clang++|-DCMAKE_CXX_COMPILER=g++|g' "$f"
-            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/icx|-DCMAKE_C_COMPILER=gcc|g' "$f"
-            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/icpx|-DCMAKE_CXX_COMPILER=g++|g' "$f"
-            sed -i 's/-DEMBREE_SYCL_SUPPORT=ON/-DEMBREE_SYCL_SUPPORT=OFF/g' "$f"
-            sed -i 's/-DOIDN_DEVICE_SYCL=ON/-DOIDN_DEVICE_SYCL=OFF/g' "$f"
-          done
 
           for f in build_files/build_environment/cmake/*.cmake; do
             sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/clang|-DCMAKE_C_COMPILER=gcc|g' "$f"
@@ -100,7 +90,7 @@ jobs:
             sed -i 's/-DEMBREE_SYCL_SUPPORT=ON/-DEMBREE_SYCL_SUPPORT=OFF/g' "$f"
             sed -i 's/-DOIDN_DEVICE_SYCL=ON/-DOIDN_DEVICE_SYCL=OFF/g' "$f"
 
-            # -> [ADD THESE FIXES] Ignore strict accelerators on generic aarch64 servers loops. 
+            # Ignore strict accelerators on generic aarch64 servers loops. 
             sed -i 's/-DOIDN_DEVICE_HIP=ON/-DOIDN_DEVICE_HIP=OFF/g' "$f"
             sed -i 's/-DOIDN_DEVICE_CUDA=ON/-DOIDN_DEVICE_CUDA=OFF/g' "$f"
           done
@@ -115,8 +105,9 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ runner.os }}-aarch64-ccache
-          restore-keys: ${{ runner.os }}-aarch64-ccache-2026-09-29T17:03:52.010Z
+          restore-keys: ${{ runner.os }}-aarch64-ccache
           max-size: 8G 
+          create-symlink: true
 
       - name: Build Complete Environment Dependencies (GCC + Unix Makefiles)
         run: |
@@ -136,38 +127,51 @@ jobs:
             chmod +x bin/$cmd
           done
           
-          export PATH="$(pwd)/bin:$PATH"
+          export PATH="/usr/lib/ccache:$(pwd)/bin:$PATH"
           
           mkdir -p build_deps && cd build_deps
           
           export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC"
           export CFLAGS="-fPIC"
-          export CC=gcc CXX=g++
+          export CC=gcc 
+          export CXX=g++
           export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
           cmake ../blender/build_files/build_environment \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=gcc \
-            -DCMAKE_CXX_COMPILER=g++ \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DBUILD_SYCL=OFF
             
           make -j$(nproc)
 
+          ls -lh
+          
+          du -sh .
+
+      - name: Dispatch Compiled Dependencies with extras(hopefully)
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender-4.2.23-aarch64-deps+
+          path: |
+            ${{ github.workspace }}/lib/linux_aarch64
+            build_deps/linux
+
       - name: Build Target Blender Binary
         run: |
           mkdir -p build_blender && cd build_blender
           
-          export CC=gcc CXX=g++
+          export PATH="/usr/lib/ccache:$PATH"
+          export CC=gcc 
+          export CXX=g++
           
           cmake ../blender \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=gcc \
-            -DCMAKE_CXX_COMPILER=g++ \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_PREFIX_PATH="../build_deps/opt" \
+            -DLIBDIR="../lib/linux_aarch64" \
+            -DCMAKE_PREFIX_PATH="../lib/linux_aarch64" \
+            -DPYTHON_ROOT_DIR="../lib/linux_aarch64/python" \
             -DWITH_INSTALL_PORTABLE=ON \
             -DWITH_CYCLES=ON \
             -DWITH_CYCLES_DEVICE_CUDA=OFF \
@@ -188,4 +192,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64-deps
-          path: build_deps/opt
+          path: ${{ github.workspace }}/lib/linux_aarch64
