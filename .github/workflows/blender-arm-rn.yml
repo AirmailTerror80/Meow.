@@ -115,7 +115,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ runner.os }}-aarch64-ccache
-          restore-keys: ${{ runner.os }}-aarch64-ccache--2026-09-27T12:59:42.708Z 
+          restore-keys: ${{ runner.os }}-aarch64-ccache-2026-09-29T17:03:52.010Z
           max-size: 8G 
 
       - name: Build Complete Environment Dependencies (GCC + Unix Makefiles)
@@ -161,6 +161,7 @@ jobs:
           
           export CC=gcc CXX=g++
           
+          cmake ../blender \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=gcc \
             -DCMAKE_CXX_COMPILER=g++ \
