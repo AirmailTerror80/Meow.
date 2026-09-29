@@ -91,6 +91,19 @@ jobs:
             sed -i 's/-DEMBREE_SYCL_SUPPORT=ON/-DEMBREE_SYCL_SUPPORT=OFF/g' "$f"
             sed -i 's/-DOIDN_DEVICE_SYCL=ON/-DOIDN_DEVICE_SYCL=OFF/g' "$f"
           done
+
+          for f in build_files/build_environment/cmake/*.cmake; do
+            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/clang|-DCMAKE_C_COMPILER=gcc|g' "$f"
+            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/clang++|-DCMAKE_CXX_COMPILER=g++|g' "$f"
+            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/icx|-DCMAKE_C_COMPILER=gcc|g' "$f"
+            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/icpx|-DCMAKE_CXX_COMPILER=g++|g' "$f"
+            sed -i 's/-DEMBREE_SYCL_SUPPORT=ON/-DEMBREE_SYCL_SUPPORT=OFF/g' "$f"
+            sed -i 's/-DOIDN_DEVICE_SYCL=ON/-DOIDN_DEVICE_SYCL=OFF/g' "$f"
+
+            # -> [ADD THESE FIXES] Ignore strict accelerators on generic aarch64 servers loops. 
+            sed -i 's/-DOIDN_DEVICE_HIP=ON/-DOIDN_DEVICE_HIP=OFF/g' "$f"
+            sed -i 's/-DOIDN_DEVICE_CUDA=ON/-DOIDN_DEVICE_CUDA=OFF/g' "$f"
+          done
          
           for intel_gpu_only in ocloc igc intel_compute_runtime dpcpp level_zero sycl; do
              if [ -f "build_files/build_environment/cmake/${intel_gpu_only}.cmake" ]; then
