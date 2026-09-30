@@ -1,12 +1,10 @@
 name: Build Blender 4.2 LTS
 
 on:
-  push:
   workflow_dispatch:
 
 env:
   BLENDER_BRANCH: blender-v4.2-release
-  BLENDER_VERSION: 4.2.23
 
 jobs:
   build-native:
@@ -103,8 +101,8 @@ jobs:
       - name: Fetch CCache
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-aarch64-blender-4.2-ccache
-          restore-keys: ${{ runner.os }}-aarch64-ccache-2026-09-30T04:52:10.329Z
+          key: ${{ runner.os }}-aarch64-blender-4.2
+          restore-keys: ${{ runner.os }}-aarch64-ccache-2026-09-30T08:44:01.659Z 
           max-size: 8G
           create-symlink: true
 
@@ -167,6 +165,9 @@ jobs:
           export CC=gcc 
           export CXX=g++
           export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
+          
+          export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
+          export CFLAGS="-fPIC -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
           
           cmake ../blender \
             -DCMAKE_BUILD_TYPE=Release \
