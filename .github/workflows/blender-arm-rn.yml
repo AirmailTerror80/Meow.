@@ -101,7 +101,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ runner.os }}-aarch64-blender-4.2
-          restore-keys: ccache-Linux-aarch64-blender-4.2-2-2026-09-30T18:54:54.969Z
+          restore-keys: ccache-Linux-aarch64-blender-4.2-2026-09-30T20:35:59.025Z
           max-size: 4G
           create-symlink: true
 
@@ -166,7 +166,7 @@ jobs:
           export CC=gcc 
           export CXX=g++
           export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
-          
+
           for pkg in openimageio opencolorio openimagedenoise openexr openvdb nanovdb imath osl ptex; do
             for fallback in "lib/aarch64-linux-gnu" "lib64"; do
               if [ -d "$ARCH_LIBDIR/$pkg/$fallback" ]; then
@@ -175,23 +175,32 @@ jobs:
               fi
             done
           done
+          
+          export C_INCLUDE_PATH=""
+          export CPLUS_INCLUDE_PATH=""
+          for fallback in "$ARCH_LIBDIR"/openimageio/include \
+                          "$ARCH_LIBDIR"/imath/include \
+                          "$ARCH_LIBDIR"/imath/include/Imath \
+                          "$ARCH_LIBDIR"/openexr/include \
+                          "$ARCH_LIBDIR"/openexr/include/OpenEXR \
+                          "$ARCH_LIBDIR"/openvdb/include \
+                          "$ARCH_LIBDIR"/nanovdb/include \
+                          "$ARCH_LIBDIR"/opencolorio/include \
+                          "$ARCH_LIBDIR"/openimagedenoise/include \
+                          "$ARCH_LIBDIR"/osl/include; do
+            if [ -d "$fallback" ]; then
+              export C_INCLUDE_PATH="$C_INCLUDE_PATH:$fallback"
+              export CPLUS_INCLUDE_PATH="$CPLUS_INCLUDE_PATH:$fallback"
+            fi
+          done
 
+          export C_INCLUDE_PATH="${C_INCLUDE_PATH#:}"
+          export CPLUS_INCLUDE_PATH="${CPLUS_INCLUDE_PATH#:}"
+         
           export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC -fuse-ld=lld -Wl,--undefined-version"
-          export CFLAGS="-fPIC -Wno-incompatible-function-pointer-types -Wno-implicit-function-declaration -Wno-implicit-int -Wno-int-conversion -fuse-ld=lld -Wl,--undefined-version"
+          export CFLAGS="-fPIC -fuse-ld=lld -Wl,--undefined-version"
           
           cat << 'EOF' >> ../blender/build_files/cmake/platform/platform_unix.cmake
-          
-          include_directories("$ENV{ARCH_LIBDIR}/openimageio/include")
-          include_directories("$ENV{ARCH_LIBDIR}/imath/include")
-          include_directories("$ENV{ARCH_LIBDIR}/imath/include/Imath")
-          include_directories("$ENV{ARCH_LIBDIR}/openexr/include")
-          include_directories("$ENV{ARCH_LIBDIR}/openexr/include/OpenEXR")
-          include_directories("$ENV{ARCH_LIBDIR}/openvdb/include")
-          include_directories("$ENV{ARCH_LIBDIR}/nanovdb/include")
-          include_directories("$ENV{ARCH_LIBDIR}/opencolorio/include")
-          include_directories("$ENV{ARCH_LIBDIR}/openimagedenoise/include")
-          include_directories("$ENV{ARCH_LIBDIR}/osl/include")
-
           file(GLOB_RECURSE LOCAL_LIB_FILES "$ENV{ARCH_LIBDIR}/*.a")
           list(APPEND PLATFORM_LINKLIBS 
              "-Wl,--allow-multiple-definition"
@@ -228,13 +237,6 @@ jobs:
             -DPYTHON_VERSION=3.11 \
             -DPYTHON_ROOT_DIR=$ARCH_LIBDIR/python \
             -DWITH_INSTALL_PORTABLE=ON \
-            -DOPENEXR_INCLUDE_DIR="$ARCH_LIBDIR/openexr/include" \
-            -DIMATH_INCLUDE_DIR="$ARCH_LIBDIR/imath/include" \
-            -DOPENIMAGEIO_INCLUDE_DIR="$ARCH_LIBDIR/openimageio/include" \
-            -DOPENVDB_INCLUDE_DIR="$ARCH_LIBDIR/openvdb/include" \
-            -DNANOVDB_INCLUDE_DIR="$ARCH_LIBDIR/nanovdb/include" \
-            -DOPENCOLORIO_INCLUDE_DIR="$ARCH_LIBDIR/opencolorio/include" \
-            -DOPENIMAGEDENOISE_INCLUDE_DIR="$ARCH_LIBDIR/openimagedenoise/include" \
             -DWITH_OPENVDB=ON \
             -DWITH_NANOVDB=ON \
             -DWITH_OPENCOLORIO=ON \
