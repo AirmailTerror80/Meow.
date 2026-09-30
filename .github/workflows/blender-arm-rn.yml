@@ -19,13 +19,14 @@ jobs:
           ref: ${{ env.BLENDER_BRANCH }}
           path: blender
           submodules: recursive
+          lfs: true
 
       - name: Prepare Native Server Repositories 
         run: |
           sudo apt-get update
           
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
+            build-essential cmake ccache git git-lfs subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint \
             pkg-config ninja-build xutils-dev xsltproc xmlto python3-docutils \
             libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
@@ -101,7 +102,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ runner.os }}-aarch64-ccache
-          restore-keys: ${{ runner.os }}-aarch64-ccache-2026-09-30T02:42:50.750Z
+          restore-keys: ${{ runner.os }}-aarch64-ccache-2026-09-30T04:52:10.329Z 
           max-size: 8G 
           create-symlink: true
 
@@ -146,7 +147,7 @@ jobs:
           make -j$(nproc)
           
           if [ -d "Release" ] && [ "$(ls -A Release)" ]; then
-             echo "Transferring natively matched output variables generating cleanly internally locally into explicitly structured mappings."
+             echo "Transferring natively matched output variables generating into explicitly structured mappings."
              cp -ra Release/* $ARCH_LIBDIR/ || true
           fi
 
