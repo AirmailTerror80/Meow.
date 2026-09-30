@@ -167,10 +167,13 @@ jobs:
           export CXX=g++
           export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
           
-          for fallback in "lib/aarch64-linux-gnu" "lib64"; do
-            if [ -d "$ARCH_LIBDIR/openimageio/$fallback" ]; then
-              cp -ra "$ARCH_LIBDIR/openimageio/$fallback/"* "$ARCH_LIBDIR/openimageio/lib/" 2>/dev/null || true
-            fi
+          for pkg in openimageio opencolorio openimagedenoise openexr openvdb nanovdb imath osl ptex; do
+            for fallback in "lib/aarch64-linux-gnu" "lib64"; do
+              if [ -d "$ARCH_LIBDIR/$pkg/$fallback" ]; then
+                mkdir -p "$ARCH_LIBDIR/$pkg/lib"
+                cp -ra "$ARCH_LIBDIR/$pkg/$fallback/"* "$ARCH_LIBDIR/$pkg/lib/" 2>/dev/null || true
+              fi
+            done
           done
 
           export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC -fuse-ld=lld -Wl,--undefined-version"
@@ -178,6 +181,17 @@ jobs:
           
           cat << 'EOF' >> ../blender/build_files/cmake/platform/platform_unix.cmake
           
+          include_directories("$ENV{ARCH_LIBDIR}/openimageio/include")
+          include_directories("$ENV{ARCH_LIBDIR}/imath/include")
+          include_directories("$ENV{ARCH_LIBDIR}/imath/include/Imath")
+          include_directories("$ENV{ARCH_LIBDIR}/openexr/include")
+          include_directories("$ENV{ARCH_LIBDIR}/openexr/include/OpenEXR")
+          include_directories("$ENV{ARCH_LIBDIR}/openvdb/include")
+          include_directories("$ENV{ARCH_LIBDIR}/nanovdb/include")
+          include_directories("$ENV{ARCH_LIBDIR}/opencolorio/include")
+          include_directories("$ENV{ARCH_LIBDIR}/openimagedenoise/include")
+          include_directories("$ENV{ARCH_LIBDIR}/osl/include")
+
           file(GLOB_RECURSE LOCAL_LIB_FILES "$ENV{ARCH_LIBDIR}/*.a")
           list(APPEND PLATFORM_LINKLIBS 
              "-Wl,--allow-multiple-definition"
@@ -214,11 +228,13 @@ jobs:
             -DPYTHON_VERSION=3.11 \
             -DPYTHON_ROOT_DIR=$ARCH_LIBDIR/python \
             -DWITH_INSTALL_PORTABLE=ON \
-            -DOPENEXR_INCLUDE_DIR="$ARCH_LIBDIR/openexr/include/OpenEXR" \
+            -DOPENEXR_INCLUDE_DIR="$ARCH_LIBDIR/openexr/include" \
             -DIMATH_INCLUDE_DIR="$ARCH_LIBDIR/imath/include" \
             -DOPENIMAGEIO_INCLUDE_DIR="$ARCH_LIBDIR/openimageio/include" \
             -DOPENVDB_INCLUDE_DIR="$ARCH_LIBDIR/openvdb/include" \
             -DNANOVDB_INCLUDE_DIR="$ARCH_LIBDIR/nanovdb/include" \
+            -DOPENCOLORIO_INCLUDE_DIR="$ARCH_LIBDIR/opencolorio/include" \
+            -DOPENIMAGEDENOISE_INCLUDE_DIR="$ARCH_LIBDIR/openimagedenoise/include" \
             -DWITH_OPENVDB=ON \
             -DWITH_NANOVDB=ON \
             -DWITH_OPENCOLORIO=ON \
