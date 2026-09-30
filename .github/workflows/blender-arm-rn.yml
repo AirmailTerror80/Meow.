@@ -28,7 +28,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint \
-            pkg-config ninja-build xutils-dev xsltproc xmlto python3-docutils \
+            pkg-config ninja-build xutils-dev xsltproc xmlto python3-docutils lld \
             libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libwayland-dev wayland-protocols libxkbcommon-dev \
             libdbus-1-dev linux-libc-dev libpulse-dev libasound2-dev libjack-dev libpipewire-0.3-dev \
@@ -43,10 +43,6 @@ jobs:
             libbz2-dev liblzma-dev zlib1g-dev libxrender-dev libxft-dev libx11-xcb-dev \
             libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev
 
-          sudo apt-get install -y --no-install-recommends \
-            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
-            libc6-dev-armhf-cross linux-libc-dev-armhf-cross
-
       - name: Pre-Downloaded Missing Archives 
         run: |
           mkdir -p build_deps/packages
@@ -57,6 +53,8 @@ jobs:
       - name: Target Compatibility Patches
         run: |
           cd blender
+          
+          find build_files/cmake -type f -exec sed -i -E 's|-fuse-ld=gold|-fuse-ld=lld|g' {} +
           
           sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
           sed -i '1s|^|set(PLATFORM_CXXFLAGS "-Wno-changes-meaning -Wno-error=changes-meaning -fpermissive -fPIC ${PLATFORM_CXXFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
@@ -166,18 +164,18 @@ jobs:
           export CXX=g++
           export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
           
-          export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
-          export CFLAGS="-fPIC -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
+          export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC -fuse-ld=lld -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
+          export CFLAGS="-fPIC -fuse-ld=lld -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
           
-          cat << EOF >> ../blender/build_files/cmake/platform/platform_unix.cmake
+          cat << 'EOF' >> ../blender/build_files/cmake/platform/platform_unix.cmake
           
-          file(GLOB_RECURSE LOCAL_LIB_FILES "\$ENV{ARCH_LIBDIR}/**/*.a")
+          file(GLOB_RECURSE LOCAL_LIB_FILES "$ENV{ARCH_LIBDIR}/*.a")
           list(APPEND PLATFORM_LINKLIBS 
+             "-Wl,--allow-multiple-definition"
              "-Wl,--start-group" 
-             \${LOCAL_LIB_FILES} 
+             ${LOCAL_LIB_FILES} 
              "-Wl,--end-group" 
-             "-lstdc++"
-             "-lm"
+             "-lpthread" "-lz" "-lstdc++" "-lm"
           )
           
           EOF
@@ -186,6 +184,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -Wl,--allow-multiple-definition" \
             -DLIBDIR=$ARCH_LIBDIR \
             -DCMAKE_PREFIX_PATH=$ARCH_LIBDIR \
             -DPYTHON_VERSION=3.11 \
