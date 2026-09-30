@@ -21,7 +21,7 @@ jobs:
           cd blender
           git submodule update --init --recursive
           
-      - name: Install Host-side Packages & Cross Packages For ISPC ONLY
+      - name: Install Host-side Packages & Cross Packages For ISPC
         run: |
           sudo dpkg --add-architecture armhf
           
@@ -103,11 +103,14 @@ jobs:
              fi
           done
 
+          sed -i 's|file(STRINGS ${_openimageio_export} OIIO_VERSION_DATA_LIST|#file|g' build_files/cmake/Modules/FindOpenImageIO.cmake || true
+          sed -i 's|list(GET OIIO_VERSION_DATA_LIST 1 OIIO_VERSION)|set(OIIO_VERSION 2.4.0)|g' build_files/cmake/Modules/FindOpenImageIO.cmake || true
+          
       - name: Fetch CCache
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ runner.os }}-aarch64-blender-4.2
-          restore-keys: ccache-Linux-aarch64-blender-4.2-2026-09-30T12:35:22.979Z
+          restore-keys: ccache-Linux-aarch64-blender-4.2-2026-09-30T18:21:07.706Z
           max-size: 4G
           create-symlink: true
 
@@ -173,8 +176,8 @@ jobs:
           export CXX=g++
           export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
           
-          export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC -fuse-ld=lld -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
-          export CFLAGS="-fPIC -Wno-incompatible-function-pointer-types -Wno-implicit-function-declaration -Wno-implicit-int -Wno-int-conversion -fuse-ld=lld -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
+          export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC -fuse-ld=lld"
+          export CFLAGS="-fPIC -Wno-incompatible-function-pointer-types -Wno-implicit-function-declaration -Wno-implicit-int -Wno-int-conversion -fuse-ld=lld"
           
           cat << 'EOF' >> ../blender/build_files/cmake/platform/platform_unix.cmake
           
@@ -186,10 +189,10 @@ jobs:
              "-Wl,--end-group" 
              "-lpthread" "-lz" "-lstdc++" "-lm"
           )
-          
           EOF
           
           cmake ../blender \
+            -Wno-dev \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -202,11 +205,19 @@ jobs:
             -DOSL_ROOT_DIR="$ARCH_LIBDIR/osl" \
             -DPTEX_ROOT_DIR="$ARCH_LIBDIR/ptex" \
             -DBLOSC_ROOT_DIR="$ARCH_LIBDIR/blosc" \
+            -DOPENCOLORIO_ROOT_DIR="$ARCH_LIBDIR/opencolorio" \
             -DLIBDIR=$ARCH_LIBDIR \
             -DCMAKE_PREFIX_PATH=$ARCH_LIBDIR \
             -DPYTHON_VERSION=3.11 \
             -DPYTHON_ROOT_DIR=$ARCH_LIBDIR/python \
             -DWITH_INSTALL_PORTABLE=ON \
+            -DOPENEXR_INCLUDE_DIR="$ARCH_LIBDIR/openexr/include/OpenEXR" \
+            -DIMATH_INCLUDE_DIR="$ARCH_LIBDIR/imath/include" \
+            -DOPENIMAGEIO_INCLUDE_DIR="$ARCH_LIBDIR/openimageio/include" \
+            -DOPENVDB_INCLUDE_DIR="$ARCH_LIBDIR/openvdb/include" \
+            -DNANOVDB_INCLUDE_DIR="$ARCH_LIBDIR/nanovdb/include" \
+            -DWITH_OPENVDB=OFF \
+            -DWITH_NANOVDB=OFF \
             -DWITH_CYCLES=ON \
             -DWITH_CYCLES_DEVICE_CUDA=OFF \
             -DWITH_CYCLES_DEVICE_OPTIX=OFF \
