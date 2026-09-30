@@ -1,8 +1,6 @@
 name: Native Build Blender 4.2 LTS
 
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch:
 
 env:
@@ -89,8 +87,6 @@ jobs:
             sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/icpx|-DCMAKE_CXX_COMPILER=g++|g' "$f"
             sed -i 's/-DEMBREE_SYCL_SUPPORT=ON/-DEMBREE_SYCL_SUPPORT=OFF/g' "$f"
             sed -i 's/-DOIDN_DEVICE_SYCL=ON/-DOIDN_DEVICE_SYCL=OFF/g' "$f"
-
-            # Ignore strict accelerators on generic aarch64 servers loops. 
             sed -i 's/-DOIDN_DEVICE_HIP=ON/-DOIDN_DEVICE_HIP=OFF/g' "$f"
             sed -i 's/-DOIDN_DEVICE_CUDA=ON/-DOIDN_DEVICE_CUDA=OFF/g' "$f"
           done
@@ -128,8 +124,9 @@ jobs:
           done
           
           export PATH="/usr/lib/ccache:$(pwd)/bin:$PATH"
-          
+          export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
           mkdir -p build_deps && cd build_deps
+          mkdir -p $ARCH_LIBDIR
           
           export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC"
           export CFLAGS="-fPIC"
@@ -138,24 +135,29 @@ jobs:
           export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
           cmake ../blender/build_files/build_environment \
+            -DHARVEST_TARGET=$ARCH_LIBDIR \
+            -DCMAKE_INSTALL_PREFIX=$ARCH_LIBDIR \
+            -DBUILD_DIR=$ARCH_LIBDIR \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DBUILD_SYCL=OFF
             
           make -j$(nproc)
-
-          ls -lh
           
-          du -sh .
+          if [ -d "Release" ] && [ "$(ls -A Release)" ]; then
+             echo "Transferring natively matched output variables generating cleanly internally locally into explicitly structured mappings."
+             cp -ra Release/* $ARCH_LIBDIR/ || true
+          fi
 
-      - name: Dispatch Compiled Dependencies with extras(hopefully)
+          ls -lh $ARCH_LIBDIR
+
+      - name: Dispatch Compiled Dependencies Artifact Space Checks 
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64-deps+
           path: |
             ${{ github.workspace }}/lib/linux_aarch64
-            build_deps/linux
 
       - name: Build Target Blender Binary
         run: |
@@ -164,14 +166,16 @@ jobs:
           export PATH="/usr/lib/ccache:$PATH"
           export CC=gcc 
           export CXX=g++
+          export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
           
           cmake ../blender \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DLIBDIR="../lib/linux_aarch64" \
-            -DCMAKE_PREFIX_PATH="../lib/linux_aarch64" \
-            -DPYTHON_ROOT_DIR="../lib/linux_aarch64/python" \
+            -DLIBDIR=$ARCH_LIBDIR \
+            -DCMAKE_PREFIX_PATH=$ARCH_LIBDIR \
+            -DPYTHON_VERSION=3.11 \
+            -DPYTHON_ROOT_DIR=$ARCH_LIBDIR/python \
             -DWITH_INSTALL_PORTABLE=ON \
             -DWITH_CYCLES=ON \
             -DWITH_CYCLES_DEVICE_CUDA=OFF \
@@ -187,9 +191,3 @@ jobs:
         with:
           name: blender-4.2.23-aarch64
           path: build_blender/bin/
-
-      - name: Dispatch Compiled Dependencies
-        uses: actions/upload-artifact@v4
-        with:
-          name: blender-4.2.23-aarch64-deps
-          path: ${{ github.workspace }}/lib/linux_aarch64
