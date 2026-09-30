@@ -102,8 +102,8 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ runner.os }}-aarch64-blender-4.2
-          restore-keys: ${{ runner.os }}-aarch64-ccache-2026-09-30T08:44:01.659Z 
-          max-size: 8G
+          restore-keys: ccache-Linux-aarch64-blender-4.2-2026-09-30T11:43:01.405Z
+          max-size: 4G
           create-symlink: true
 
       - name: Build Blender Dependencies
@@ -165,6 +165,23 @@ jobs:
           export CC=gcc 
           export CXX=g++
           export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
+
+          cat << EOF >> ../blender/build_files/cmake/platform/platform_unix.cmake
+          
+          list(APPEND PLATFORM_LINKLIBS
+            "-L$ARCH_LIBDIR/aom/lib"
+            "-L$ARCH_LIBDIR/aom/lib64"
+            "-L$ARCH_LIBDIR/x265/lib"
+            "-L$ARCH_LIBDIR/x265/lib64"
+            "-L$ARCH_LIBDIR/tiff/lib"
+            "-L$ARCH_LIBDIR/tiff/lib64"
+            "-laom"
+            "-lx265"
+            "-ltiff"
+            "-lbz2"
+            "-lz"
+          )
+          EOF
           
           export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
           export CFLAGS="-fPIC -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
