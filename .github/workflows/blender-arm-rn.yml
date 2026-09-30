@@ -165,26 +165,22 @@ jobs:
           export CC=gcc 
           export CXX=g++
           export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
-
-          cat << EOF >> ../blender/build_files/cmake/platform/platform_unix.cmake
-          
-          list(APPEND PLATFORM_LINKLIBS
-            "-L$ARCH_LIBDIR/aom/lib"
-            "-L$ARCH_LIBDIR/aom/lib64"
-            "-L$ARCH_LIBDIR/x265/lib"
-            "-L$ARCH_LIBDIR/x265/lib64"
-            "-L$ARCH_LIBDIR/tiff/lib"
-            "-L$ARCH_LIBDIR/tiff/lib64"
-            "-laom"
-            "-lx265"
-            "-ltiff"
-            "-lbz2"
-            "-lz"
-          )
-          EOF
           
           export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
           export CFLAGS="-fPIC -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
+          
+          cat << EOF >> ../blender/build_files/cmake/platform/platform_unix.cmake
+          
+          file(GLOB_RECURSE LOCAL_LIB_FILES "\$ENV{ARCH_LIBDIR}/**/*.a")
+          list(APPEND PLATFORM_LINKLIBS 
+             "-Wl,--start-group" 
+             \${LOCAL_LIB_FILES} 
+             "-Wl,--end-group" 
+             "-lstdc++"
+             "-lm"
+          )
+          
+          EOF
           
           cmake ../blender \
             -DCMAKE_BUILD_TYPE=Release \
