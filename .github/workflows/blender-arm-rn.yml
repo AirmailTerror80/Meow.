@@ -1,10 +1,11 @@
-name: Native Build Blender 4.2 LTS
+name: Build Blender 4.2 LTS
 
 on:
+  push:
   workflow_dispatch:
 
 env:
-  BLENDER_BRANCH: v4.2.23
+  BLENDER_BRANCH: blender-v4.2-release
   BLENDER_VERSION: 4.2.23
 
 jobs:
@@ -12,21 +13,22 @@ jobs:
     runs-on: ubuntu-24.04-arm
 
     steps:
-      - name: Checkout Blender Repository
-        uses: actions/checkout@v4
-        with:
-          repository: blender/blender
-          ref: ${{ env.BLENDER_BRANCH }}
-          path: blender
-          submodules: recursive
-          lfs: true
-
-      - name: Prepare Native Server Repositories 
+      - name: Blender Checkout
+        run: |
+          sudo apt-get update && sudo apt-get install -y git-lfs 
+          git lfs install
+          
+          git clone --branch ${{ env.BLENDER_BRANCH }} --depth 1 https://projects.blender.org/blender/blender.git blender
+          
+          cd blender
+          git submodule update --init --recursive
+          
+      - name: Install Host-side Packages
         run: |
           sudo apt-get update
           
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ccache git git-lfs subversion curl xz-utils bzip2 patch \
+            build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint \
             pkg-config ninja-build xutils-dev xsltproc xmlto python3-docutils \
             libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
@@ -47,14 +49,14 @@ jobs:
             gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
             libc6-dev-armhf-cross linux-libc-dev-armhf-cross
 
-      - name: Bridge Pre-Downloaded Missing FTP Archives 
+      - name: Pre-Downloaded Missing Archives 
         run: |
           mkdir -p build_deps/packages
           curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
           curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
           curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
 
-      - name: Target Native Compatibility Hot-Fixes
+      - name: Target Compatibility Patches
         run: |
           cd blender
           
@@ -98,15 +100,15 @@ jobs:
              fi
           done
 
-      - name: Prepare Global Compiler Accelerator State (CCACHE) 
+      - name: Fetch CCache
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-aarch64-ccache
-          restore-keys: ${{ runner.os }}-aarch64-ccache-2026-09-30T04:52:10.329Z 
-          max-size: 8G 
+          key: ${{ runner.os }}-aarch64-blender-4.2-ccache
+          restore-keys: ${{ runner.os }}-aarch64-ccache-2026-09-30T04:52:10.329Z
+          max-size: 8G
           create-symlink: true
 
-      - name: Build Complete Environment Dependencies (GCC + Unix Makefiles)
+      - name: Build Blender Dependencies
         run: |
           mkdir -p bin
           for cmd in aclocal autoconf automake autoheader libtoolize autoreconf automake-1.15 aclocal-1.15 automake-1.16 aclocal-1.16 autom4te; do
@@ -147,20 +149,17 @@ jobs:
           make -j$(nproc)
           
           if [ -d "Release" ] && [ "$(ls -A Release)" ]; then
-             echo "Transferring natively matched output variables generating into explicitly structured mappings."
+             echo "Transferring natively matched output variables generating cleanly internally locally into explicitly structured mappings."
              cp -ra Release/* $ARCH_LIBDIR/ || true
           fi
 
-          ls -lh $ARCH_LIBDIR
-
-      - name: Dispatch Compiled Dependencies Artifact Space Checks 
+      - name: Upload Blender Dependencies Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: blender-4.2.23-aarch64-deps+
-          path: |
-            ${{ github.workspace }}/lib/linux_aarch64
+          name: blender-4.2.23-aarch64-deps
+          path: ${{ github.workspace }}/lib/linux_aarch64
 
-      - name: Build Target Blender Binary
+      - name: Build Blender
         run: |
           mkdir -p build_blender && cd build_blender
           
@@ -187,7 +186,7 @@ jobs:
           make -j$(nproc)
           make install
 
-      - name: Dispatch Executable App Bundle
+      - name: Upload Blender Artifact
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2.23-aarch64
