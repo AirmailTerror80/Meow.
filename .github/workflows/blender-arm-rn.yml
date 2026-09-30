@@ -23,6 +23,8 @@ jobs:
           
       - name: Install Host-side Packages
         run: |
+          sudo dpkg --add-architecture armhf
+          
           sudo apt-get update
           
           sudo apt-get install -y --no-install-recommends \
@@ -41,7 +43,8 @@ jobs:
             libxt-dev libsm-dev libice-dev libxaw7-dev libxpm-dev libepoxy-dev \
             libxml2-dev libtinyxml2-dev libssl-dev libcurl4-openssl-dev libsqlite3-dev \
             libbz2-dev liblzma-dev zlib1g-dev libxrender-dev libxft-dev libx11-xcb-dev \
-            libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev
+            libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev \
+            crossbuild-essential-armhf libc6-dev:armhf
 
       - name: Pre-Downloaded Missing Archives 
         run: |
@@ -53,6 +56,10 @@ jobs:
       - name: Target Compatibility Patches
         run: |
           cd blender
+          
+          if [ -f "build_files/build_environment/cmake/ispc.cmake" ]; then
+             sed -i '/CMAKE_ARGS/a\    -DX86_ENABLED=OFF\n    -DWEBASSEMBLY_ENABLED=OFF' build_files/build_environment/cmake/ispc.cmake || true
+          fi
           
           find build_files/cmake -type f -exec sed -i -E 's|-fuse-ld=gold|-fuse-ld=lld|g' {} +
           
@@ -145,7 +152,6 @@ jobs:
           make -j$(nproc)
           
           if [ -d "Release" ] && [ "$(ls -A Release)" ]; then
-             echo "Transferring natively matched output variables generating cleanly internally locally into explicitly structured mappings."
              cp -ra Release/* $ARCH_LIBDIR/ || true
           fi
 
