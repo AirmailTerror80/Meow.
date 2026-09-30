@@ -80,12 +80,6 @@ jobs:
           sed -i 's/--prefix=/--build=aarch64-unknown-linux-gnu --prefix=/g' build_files/build_environment/cmake/theora.cmake || true
           sed -i 's/--prefix=/--build=aarch64-unknown-linux-gnu --prefix=/g' build_files/build_environment/cmake/vorbis.cmake || true
           
-          for configure_test_pkg in vorbis theora; do
-            if [ -f "build_files/build_environment/cmake/${configure_test_pkg}.cmake" ]; then
-               sed -i 's/--with-ogg/--disable-oggtest --with-ogg/g' build_files/build_environment/cmake/${configure_test_pkg}.cmake || true
-            fi
-          done
-
           for f in build_files/build_environment/cmake/*.cmake; do
             sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/clang|-DCMAKE_C_COMPILER=gcc|g' "$f"
             sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/clang++|-DCMAKE_CXX_COMPILER=g++|g' "$f"
@@ -102,9 +96,6 @@ jobs:
                 echo "add_custom_target(external_${intel_gpu_only})" > "build_files/build_environment/cmake/${intel_gpu_only}.cmake"
              fi
           done
-
-          sed -i 's|file(STRINGS ${_openimageio_export} OIIO_VERSION_DATA_LIST|#file|g' build_files/cmake/Modules/FindOpenImageIO.cmake || true
-          sed -i 's|list(GET OIIO_VERSION_DATA_LIST 1 OIIO_VERSION)|set(OIIO_VERSION 2.4.0)|g' build_files/cmake/Modules/FindOpenImageIO.cmake || true
           
       - name: Fetch CCache
         uses: hendrikmuhs/ccache-action@v1.2.23
@@ -176,6 +167,12 @@ jobs:
           export CXX=g++
           export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
           
+          for fallback in "lib/aarch64-linux-gnu" "lib64"; do
+            if [ -d "$ARCH_LIBDIR/openimageio/$fallback" ]; then
+              cp -ra "$ARCH_LIBDIR/openimageio/$fallback/"* "$ARCH_LIBDIR/openimageio/lib/" 2>/dev/null || true
+            fi
+          done
+
           export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC -fuse-ld=lld -Wl,--undefined-version"
           export CFLAGS="-fPIC -Wno-incompatible-function-pointer-types -Wno-implicit-function-declaration -Wno-implicit-int -Wno-int-conversion -fuse-ld=lld -Wl,--undefined-version"
           
@@ -197,6 +194,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_C_FLAGS="$CFLAGS" \
+            -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
             -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -Wl,--allow-multiple-definition -Wl,--undefined-version" \
             -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
             -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
@@ -236,5 +235,5 @@ jobs:
       - name: Upload Blender Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: blender-4.2.23-aarch64
+          name: blender-4.2-aarch64
           path: build_blender/bin/
