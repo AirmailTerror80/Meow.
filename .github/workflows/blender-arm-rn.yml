@@ -21,10 +21,8 @@ jobs:
           cd blender
           git submodule update --init --recursive
           
-      - name: Install Host-side Packages & LLVM Cross-Includes Fix
+      - name: Install Host-side Packages
         run: |
-          sudo dpkg --add-architecture armhf
-          
           sudo apt-get update
           
           sudo apt-get install -y --no-install-recommends \
@@ -43,13 +41,7 @@ jobs:
             libxt-dev libsm-dev libice-dev libxaw7-dev libxpm-dev libepoxy-dev \
             libxml2-dev libtinyxml2-dev libssl-dev libcurl4-openssl-dev libsqlite3-dev \
             libbz2-dev liblzma-dev zlib1g-dev libxrender-dev libxft-dev libx11-xcb-dev \
-            libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev \
-            libc6-dev-armhf-cross linux-libc-dev-armhf-cross gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
-
-          sudo mkdir -p /usr/include/bits /usr/include/gnu /usr/include/sys
-          sudo ln -s /usr/arm-linux-gnueabihf/include/bits/* /usr/include/bits/ || true
-          sudo ln -s /usr/arm-linux-gnueabihf/include/gnu/* /usr/include/gnu/ || true
-          sudo ln -s /usr/arm-linux-gnueabihf/include/sys/* /usr/include/sys/ || true
+            libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev
 
       - name: Pre-Downloaded Missing Archives 
         run: |
@@ -136,15 +128,14 @@ jobs:
           
           export PATH="/usr/lib/ccache:$(pwd)/bin:$PATH"
 
-          export CPLUS_INCLUDE_PATH="/usr/arm-linux-gnueabihf/include:/usr/include:$CPLUS_INCLUDE_PATH"
-          export C_INCLUDE_PATH="/usr/arm-linux-gnueabihf/include:/usr/include:$C_INCLUDE_PATH"
           export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
           
           mkdir -p build_deps && cd build_deps
           mkdir -p $ARCH_LIBDIR
           
           export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC"
-          export CFLAGS="-fPIC"
+          export CFLAGS="-fPIC -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types"
+          
           export CC=gcc 
           export CXX=g++
           
@@ -181,7 +172,7 @@ jobs:
           export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
           
           export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC -fuse-ld=lld -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
-          export CFLAGS="-fPIC -fuse-ld=lld -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
+          export CFLAGS="-fPIC -Wno-incompatible-function-pointer-types -Wno-implicit-function-declaration -Wno-implicit-int -Wno-int-conversion -fuse-ld=lld -I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include -I$ARCH_LIBDIR/openimagedenoise/include -I$ARCH_LIBDIR/openvdb/include -I$ARCH_LIBDIR/blosc/include -I$ARCH_LIBDIR/opencolorio/include -I$ARCH_LIBDIR/opensubdiv/include"
           
           cat << 'EOF' >> ../blender/build_files/cmake/platform/platform_unix.cmake
           
