@@ -21,8 +21,10 @@ jobs:
           cd blender
           git submodule update --init --recursive
           
-      - name: Install Host-side Packages
+      - name: Install Host-side Packages & Cross Packages For ISPC ONLY
         run: |
+          sudo dpkg --add-architecture armhf
+          
           sudo apt-get update
           
           sudo apt-get install -y --no-install-recommends \
@@ -41,7 +43,8 @@ jobs:
             libxt-dev libsm-dev libice-dev libxaw7-dev libxpm-dev libepoxy-dev \
             libxml2-dev libtinyxml2-dev libssl-dev libcurl4-openssl-dev libsqlite3-dev \
             libbz2-dev liblzma-dev zlib1g-dev libxrender-dev libxft-dev libx11-xcb-dev \
-            libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev
+            libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev \
+            libc6-dev-armhf-cross linux-libc-dev-armhf-cross gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 
       - name: Pre-Downloaded Missing Archives 
         run: |
@@ -55,7 +58,7 @@ jobs:
           cd blender
           
           if [ -f "build_files/build_environment/cmake/ispc.cmake" ]; then
-             sed -i '/CMAKE_ARGS/a\    -DARM32_ENABLED=OFF\n    -DX86_ENABLED=OFF\n    -DWEBASSEMBLY_ENABLED=OFF' build_files/build_environment/cmake/ispc.cmake || true
+             sed -i '/CMAKE_ARGS/a\    -DX86_ENABLED=OFF\n    -DWEBASSEMBLY_ENABLED=OFF' build_files/build_environment/cmake/ispc.cmake || true
           fi
           
           find build_files/cmake -type f -exec sed -i -E 's|-fuse-ld=gold|-fuse-ld=lld|g' {} +
@@ -135,7 +138,6 @@ jobs:
           
           export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC"
           export CFLAGS="-fPIC -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types"
-          
           export CC=gcc 
           export CXX=g++
           
