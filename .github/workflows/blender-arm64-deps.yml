@@ -131,12 +131,23 @@ jobs:
           
           cat << 'EOF' > bin/clang
           #!/bin/bash
+          if [[ "$*" == *"harfbuzz"* && ! -f /tmp/harfbuzz_patched_c ]]; then
+              touch /tmp/harfbuzz_patched_c
+              find ../ -type f -name "*.h" -exec sed -i -E 's/pragma[[:space:]]+(GCC|clang)[[:space:]]+diagnostic[[:space:]]+error/pragma \1 diagnostic ignored/g' {} + 2>/dev/null || true
+              find ../ -type f -name "*.c" -exec sed -i -E 's/pragma[[:space:]]+(GCC|clang)[[:space:]]+diagnostic[[:space:]]+error/pragma \1 diagnostic ignored/g' {} + 2>/dev/null || true
+          fi
           exec /usr/bin/clang -Qunused-arguments "$@" -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -Wno-unknown-warning-option
           EOF
           chmod +x bin/clang
 
           cat << 'EOF' > bin/clang++
           #!/bin/bash
+          if [[ "$*" == *"harfbuzz"* && ! -f /tmp/harfbuzz_patched_cpp ]]; then
+              touch /tmp/harfbuzz_patched_cpp
+              find ../ -type f -name "*.hh" -exec sed -i -E 's/pragma[[:space:]]+(GCC|clang)[[:space:]]+diagnostic[[:space:]]+error/pragma \1 diagnostic ignored/g' {} + 2>/dev/null || true
+              find ../ -type f -name "*.cc" -exec sed -i -E 's/pragma[[:space:]]+(GCC|clang)[[:space:]]+diagnostic[[:space:]]+error/pragma \1 diagnostic ignored/g' {} + 2>/dev/null || true
+              find ../ -type f -name "*.h" -exec sed -i -E 's/pragma[[:space:]]+(GCC|clang)[[:space:]]+diagnostic[[:space:]]+error/pragma \1 diagnostic ignored/g' {} + 2>/dev/null || true
+          fi
           exec /usr/bin/clang++ -Qunused-arguments "$@" -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -fpermissive -Wno-unknown-warning-option
           EOF
           chmod +x bin/clang++
@@ -161,7 +172,7 @@ jobs:
           export CXXFLAGS="-fPIC -Wno-changes-meaning -Wno-register -Wno-cast-function-type-strict -Wno-cast-function-type -fpermissive -Wno-unknown-warning-option"
           export CFLAGS="-fPIC -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-cast-function-type-strict -Wno-cast-function-type -Wno-unknown-warning-option -Wno-error=implicit-function-declaration"
           
-          export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
+          #export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
           cmake ../blender/build_files/build_environment \
             -DHARVEST_TARGET="$ARCH_LIBDIR" \
