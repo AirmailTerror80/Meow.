@@ -1,33 +1,28 @@
-name: Build Blender 4.2 LTS
+name: Build Blender 4.2 LTS Deps
 
 on:
   workflow_dispatch:
-
-env:
-  BLENDER_BRANCH: blender-v4.2-release
 
 jobs:
   build-native:
     runs-on: ubuntu-24.04-arm
 
     steps:
-      - name: Blender Checkout
-        run: |
-          sudo apt-get update && sudo apt-get install -y git-lfs 
-          git lfs install
-          
-          git clone --branch ${{ env.BLENDER_BRANCH }} --depth 1 https://projects.blender.org/blender/blender.git blender
-          
-          cd blender
-          git submodule update --init --recursive
-          
+      - name: Checkout Blender
+        uses: actions/checkout@v4
+        with:
+          repository: blender/blender
+          path: blender
+          depth: 1
+          ref: blender-v4.2-release
+
       - name: Install Host-side Packages
         run: |
           sudo dpkg --add-architecture armhf
           
-          sudo apt-get update
+          sudo apt-get update -qq
           
-          sudo apt-get install -y --no-install-recommends \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -yqq --no-install-recommends \
             build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint \
             pkg-config ninja-build xutils-dev xsltproc xmlto python3-docutils lld \
@@ -46,57 +41,61 @@ jobs:
             libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev \
             libc6-dev-armhf-cross linux-libc-dev-armhf-cross gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 
+      - name: Fetch Extraneous Missing Tarballs Source Cache
+        uses: actions/cache@v4
+        with:
+          path: build_deps/packages
+          key: ${{ runner.os }}-aarch64-source-tarballs-v1
+
       - name: Pre-Downloaded Missing Archives 
         run: |
           mkdir -p build_deps/packages
-          curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
-          curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
-          curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
+
+          [[ ! -f "build_deps/packages/glu-9.0.1.tar.xz" ]] && curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
+          [[ ! -f "build_deps/packages/mesa-23.3.0.tar.xz" ]] && curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
+          [[ ! -f "build_deps/packages/gmp-6.2.1.tar.xz" ]] && curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
+          exit 0 
 
       - name: Target Compatibility Patches
         run: |
           cd blender
           
-          if [ -f "build_files/build_environment/cmake/ispc.cmake" ]; then
-             sed -i '/CMAKE_ARGS/a\    -DX86_ENABLED=OFF\n    -DWEBASSEMBLY_ENABLED=OFF' build_files/build_environment/cmake/ispc.cmake || true
-          fi
+          find build_files/cmake -type f -name "*.cmake" -exec sed -i -E 's|-fuse-ld=gold|-fuse-ld=lld|g' {} +
           
-          find build_files/cmake -type f -exec sed -i -E 's|-fuse-ld=gold|-fuse-ld=lld|g' {} +
+          find build_files/build_environment/cmake -name "*.cmake" -type f -exec sed -i -E \
+            -e 's|\$\{SOURCE_DIR\}/configure |\$\{SOURCE_DIR\}/configure --build=aarch64-unknown-linux-gnu |g' \
+            -e 's|\./configure |\./configure --build=aarch64-unknown-linux-gnu |g' \
+            -e 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/clang|-DCMAKE_C_COMPILER=gcc|g' \
+            -e 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/clang++|-DCMAKE_CXX_COMPILER=g++|g' \
+            -e 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/icx|-DCMAKE_C_COMPILER=gcc|g' \
+            -e 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/icpx|-DCMAKE_CXX_COMPILER=g++|g' \
+            -e 's/-DEMBREE_SYCL_SUPPORT=ON/-DEMBREE_SYCL_SUPPORT=OFF/g' \
+            -e 's/-DOIDN_DEVICE_SYCL=ON/-DOIDN_DEVICE_SYCL=OFF/g' \
+            -e 's/-DOIDN_DEVICE_HIP=ON/-DOIDN_DEVICE_HIP=OFF/g' \
+            -e 's/-DOIDN_DEVICE_CUDA=ON/-DOIDN_DEVICE_CUDA=OFF/g' \
+            {} +
           
-          sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
-          sed -i '1s|^|set(PLATFORM_CXXFLAGS "-Wno-changes-meaning -Wno-error=changes-meaning -fpermissive -fPIC ${PLATFORM_CXXFLAGS}")\n|' build_files/build_environment/cmake/options.cmake
+          f="build_files/build_environment/cmake/ispc.cmake"
+          [ -f "$f" ] && sed -i '/CMAKE_ARGS/a\    -DX86_ENABLED=OFF\n    -DWEBASSEMBLY_ENABLED=OFF' "$f" || true
           
-          if [ -f "build_files/build_environment/cmake/gmp.cmake" ]; then
-             sed -i 's/--disable-assembly/--disable-assembly --disable-fat/g' build_files/build_environment/cmake/gmp.cmake || true
-          fi
+          f="build_files/build_environment/cmake/gmp.cmake"
+          [ -f "$f" ] && sed -i 's/--disable-assembly/--disable-assembly --disable-fat/g' "$f" || true
           
-          if [ -f "build_files/build_environment/cmake/gmmlib.cmake" ]; then
-             sed -i '/CMAKE_ARGS/a\    -DRUN_TEST_SUITE=OFF\n    -DRUN_ULT=OFF' build_files/build_environment/cmake/gmmlib.cmake || true
-          fi
-          
-          find build_files/build_environment/cmake -name "*.cmake" -exec sed -i -E 's|\$\{SOURCE_DIR\}/configure |\$\{SOURCE_DIR\}/configure --build=aarch64-unknown-linux-gnu |g' {} +
-          find build_files/build_environment/cmake -name "*.cmake" -exec sed -i -E 's|\./configure |\./configure --build=aarch64-unknown-linux-gnu |g' {} +
+          f="build_files/build_environment/cmake/gmmlib.cmake"
+          [ -f "$f" ] && sed -i '/CMAKE_ARGS/a\    -DRUN_TEST_SUITE=OFF\n    -DRUN_ULT=OFF' "$f" || true
           
           sed -i 's/--prefix=/--build=aarch64-unknown-linux-gnu --prefix=/g' build_files/build_environment/cmake/theora.cmake || true
           sed -i 's/--prefix=/--build=aarch64-unknown-linux-gnu --prefix=/g' build_files/build_environment/cmake/vorbis.cmake || true
           
-          for f in build_files/build_environment/cmake/*.cmake; do
-            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/clang|-DCMAKE_C_COMPILER=gcc|g' "$f"
-            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/clang++|-DCMAKE_CXX_COMPILER=g++|g' "$f"
-            sed -i 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/icx|-DCMAKE_C_COMPILER=gcc|g' "$f"
-            sed -i 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/icpx|-DCMAKE_CXX_COMPILER=g++|g' "$f"
-            sed -i 's/-DEMBREE_SYCL_SUPPORT=ON/-DEMBREE_SYCL_SUPPORT=OFF/g' "$f"
-            sed -i 's/-DOIDN_DEVICE_SYCL=ON/-DOIDN_DEVICE_SYCL=OFF/g' "$f"
-            sed -i 's/-DOIDN_DEVICE_HIP=ON/-DOIDN_DEVICE_HIP=OFF/g' "$f"
-            sed -i 's/-DOIDN_DEVICE_CUDA=ON/-DOIDN_DEVICE_CUDA=OFF/g' "$f"
-          done
-         
-          for intel_gpu_only in ocloc igc intel_compute_runtime dpcpp level_zero sycl; do
-             if [ -f "build_files/build_environment/cmake/${intel_gpu_only}.cmake" ]; then
-                echo "add_custom_target(external_${intel_gpu_only})" > "build_files/build_environment/cmake/${intel_gpu_only}.cmake"
-             fi
-          done
+          opt="build_files/build_environment/cmake/options.cmake"
+          [ -f "$opt" ] && sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -fPIC ${PLATFORM_CFLAGS}")\n|' $opt
+          [ -f "$opt" ] && sed -i '1s|^|set(PLATFORM_CXXFLAGS "-Wno-changes-meaning -Wno-error=changes-meaning -fpermissive -fPIC ${PLATFORM_CXXFLAGS}")\n|' $opt
           
+          for intel_gpu_only in ocloc igc intel_compute_runtime dpcpp level_zero sycl; do
+             tgt="build_files/build_environment/cmake/${intel_gpu_only}.cmake"
+             [ -f "$tgt" ] && echo "add_custom_target(external_${intel_gpu_only})" > "$tgt" || true
+          done
+
       - name: Fetch CCache
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
@@ -108,39 +107,43 @@ jobs:
       - name: Build Blender Dependencies
         run: |
           mkdir -p bin
+          
+          cat << 'EOF' > bin/wrapper-stub.sh
+          #!/bin/bash
+          if [[ "$PWD" == *"sqlite"* ]] || [[ "$PWD" == *"glu"* ]] || [[ "$PWD" == *"libglu"* ]]; then
+              exit 0
+          else
+              cmd="/usr/bin/$(basename $0)"
+              if [ -x "$cmd" ]; then
+                  exec "$cmd" "$@"
+              else
+                  echo "Missing original $(basename $0)!"
+                  exit 127
+              fi
+          fi
+          EOF
+          chmod +x bin/wrapper-stub.sh
+          
           for cmd in aclocal autoconf automake autoheader libtoolize autoreconf automake-1.15 aclocal-1.15 automake-1.16 aclocal-1.16 autom4te; do
-            echo '#!/bin/bash' > bin/$cmd
-            echo 'if [[ "$PWD" == *"sqlite"* ]] || [[ "$PWD" == *"glu"* ]] || [[ "$PWD" == *"libglu"* ]]; then' >> bin/$cmd
-            echo '    exit 0' >> bin/$cmd
-            echo 'else' >> bin/$cmd
-            echo '    if [ -x "/usr/bin/$(basename $0)" ]; then' >> bin/$cmd
-            echo '        exec "/usr/bin/$(basename $0)" "$@"' >> bin/$cmd
-            echo '    else' >> bin/$cmd
-            echo '        echo "Missing original $(basename $0)!"' >> bin/$cmd
-            echo '        exit 127' >> bin/$cmd
-            echo '    fi' >> bin/$cmd
-            echo 'fi' >> bin/$cmd
-            chmod +x bin/$cmd
+            ln -sf wrapper-stub.sh "bin/$cmd"
           done
           
-          export PATH="/usr/lib/ccache:$(pwd)/bin:$PATH"
-
-          export ARCH_LIBDIR=${{ github.workspace }}/lib/linux_aarch64
+          export PATH="$(pwd)/bin:/usr/lib/ccache:$PATH"
+          export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
           
           mkdir -p build_deps && cd build_deps
-          mkdir -p $ARCH_LIBDIR
+          mkdir -p "$ARCH_LIBDIR"
           
           export CXXFLAGS="-Wno-changes-meaning -fpermissive -fPIC"
           export CFLAGS="-fPIC -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types"
           export CC=gcc 
           export CXX=g++
-          
           export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
           cmake ../blender/build_files/build_environment \
-            -DHARVEST_TARGET=$ARCH_LIBDIR \
-            -DCMAKE_INSTALL_PREFIX=$ARCH_LIBDIR \
-            -DBUILD_DIR=$ARCH_LIBDIR \
+            -DHARVEST_TARGET="$ARCH_LIBDIR" \
+            -DCMAKE_INSTALL_PREFIX="$ARCH_LIBDIR" \
+            -DBUILD_DIR="$ARCH_LIBDIR" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -148,8 +151,8 @@ jobs:
             
           make -j$(nproc)
           
-          if [ -d "Release" ] && [ "$(ls -A Release)" ]; then
-             cp -ra Release/* $ARCH_LIBDIR/ || true
+          if [ -d "Release" ] && [ "$(ls -A Release 2>/dev/null)" ]; then
+             cp -ra Release/* "$ARCH_LIBDIR/" || true
           fi
 
       - name: Upload Blender Dependencies Artifact
