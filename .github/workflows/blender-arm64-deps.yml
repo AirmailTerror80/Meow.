@@ -1,4 +1,4 @@
-name: Build Blender Deps (Clang/LLVM Native)
+name: Build Blender Deps
 
 on:
   workflow_dispatch:
@@ -22,6 +22,7 @@ jobs:
           
           sudo apt-get update -qq
           
+          # Fully strict LLVM toolkit along with necessary multilib system resources for AARCH64 LLVM/CLANG overrides
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -yqq --no-install-recommends \
             build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint \
@@ -41,12 +42,6 @@ jobs:
             libbz2-dev liblzma-dev zlib1g-dev libxrender-dev libxft-dev libx11-xcb-dev \
             libxcb-dri3-dev libxcb-present-dev libxshmfence-dev libclang-dev \
             libc6-dev-armhf-cross linux-libc-dev-armhf-cross gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
-
-      - name: Fetch Extraneous Missing Tarballs Source Cache
-        uses: actions/cache@v4
-        with:
-          path: build_deps/packages
-          key: ${{ runner.os }}-aarch64-source-tarballs-v1
 
       - name: Pre-Downloaded Missing Archives 
         run: |
@@ -89,8 +84,11 @@ jobs:
           sed -i 's/--prefix=/--build=aarch64-unknown-linux-gnu --prefix=/g' build_files/build_environment/cmake/vorbis.cmake || true
           
           opt="build_files/build_environment/cmake/options.cmake"
-          [ -f "$opt" ] && sed -i '1s|^|set(PLATFORM_CFLAGS "-Wno-implicit-function-declaration -Wno-builtin-macro-redefined -Wno-int-conversion -Wno-implicit-int -Wno-incompatible-function-pointer-types -Wno-unknown-warning-option -fPIC ${PLATFORM_CFLAGS}")\n|' $opt
-          [ -f "$opt" ] && sed -i '1s|^|set(PLATFORM_CXXFLAGS "-Wno-changes-meaning -Wno-error=changes-meaning -Wno-unknown-warning-option -fpermissive -fPIC ${PLATFORM_CXXFLAGS}")\n|' $opt
+          
+          if [ -f "$opt" ]; then
+             echo 'set(PLATFORM_CFLAGS "${PLATFORM_CFLAGS} -fPIC -Wno-unknown-warning-option -Wno-implicit-function-declaration -Wno-error=implicit-function-declaration -Wno-int-conversion -Wno-error=int-conversion -Wno-incompatible-function-pointer-types -Wno-error=incompatible-function-pointer-types -Wno-implicit-int -Wno-error=implicit-int")' >> "$opt"
+             echo 'set(PLATFORM_CXXFLAGS "${PLATFORM_CXXFLAGS} -fPIC -fpermissive -Wno-unknown-warning-option -Wno-changes-meaning -Wno-error=changes-meaning -Wno-error=enum-constexpr-conversion")' >> "$opt"
+          fi
           
           for intel_gpu_only in ocloc igc intel_compute_runtime dpcpp level_zero sycl; do
              tgt="build_files/build_environment/cmake/${intel_gpu_only}.cmake"
@@ -143,8 +141,8 @@ jobs:
           export STRIP=llvm-strip
           export LD=lld
 
-          export CXXFLAGS="-Wno-changes-meaning -fpermissive -Wno-unknown-warning-option -fPIC"
-          export CFLAGS="-fPIC -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-unknown-warning-option"
+          export CXXFLAGS="-fPIC -Wno-changes-meaning -fpermissive -Wno-unknown-warning-option"
+          export CFLAGS="-fPIC -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-unknown-warning-option -Wno-error=implicit-function-declaration"
           
           export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
