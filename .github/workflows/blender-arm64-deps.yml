@@ -21,7 +21,7 @@ jobs:
           cd blender
           git submodule update --init --recursive
           
-      - name: Install Host-side Packages & Cross Packages For ISPC
+      - name: Install Host-side Packages
         run: |
           sudo dpkg --add-architecture armhf
           
@@ -101,7 +101,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ runner.os }}-aarch64-blender-4.2
-          restore-keys: ccache-Linux-aarch64-blender-4.2-2026-09-30T20:35:59.025Z
+          restore-keys: ccache-Linux-aarch64-blender-4.2
           max-size: 4G
           create-symlink: true
 
@@ -157,46 +157,3 @@ jobs:
         with:
           name: blender-4.2.23-aarch64-deps
           path: ${{ github.workspace }}/lib/linux_aarch64
-
-      - name: Build Blender
-        run: |
-          mkdir -p build_blender && cd build_blender
-          
-          export PATH="/usr/lib/ccache:$PATH"
-          export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
-
-          export OIIO_1="${{ github.workspace }}/lib/linux_aarch64/openimageio/include"
-          export OIIO_2="${{ github.workspace }}/build_deps/Release/openimageio/include"
-          
-          export CPLUS_INCLUDE_PATH="$OIIO_1:$OIIO_2:$CPLUS_INCLUDE_PATH"
-          export C_INCLUDE_PATH="$OIIO_1:$OIIO_2:$C_INCLUDE_PATH"
-          
-          export CXXFLAGS="-Wno-missing-include-dirs -fpermissive -fPIC"
-          export CFLAGS="-Wno-missing-include-dirs -fPIC"
-          export LDFLAGS="-fuse-ld=lld -Wl,--allow-multiple-definition -Wl,--undefined-version"
-
-          cat << EOF >> ../blender/build_files/cmake/platform/platform_unix.cmake
-                    
-          cmake ../blender \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DLIBDIR=$ARCH_LIBDIR \
-            -DCMAKE_PREFIX_PATH=$ARCH_LIBDIR \
-            -DPYTHON_VERSION=3.11 \
-            -DPYTHON_ROOT_DIR=$ARCH_LIBDIR/python \
-            -DWITH_INSTALL_PORTABLE=ON \
-            -DWITH_CYCLES=ON \
-            -DWITH_CYCLES_DEVICE_CUDA=OFF \
-            -DWITH_CYCLES_DEVICE_OPTIX=OFF \
-            -DWITH_CYCLES_DEVICE_HIP=OFF \
-            -DWITH_CYCLES_DEVICE_SYCL=OFF
-            
-          make -j$(nproc)
-          make install
-
-      - name: Upload Blender Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: blender-4.2-aarch64
-          path: build_blender/bin/
