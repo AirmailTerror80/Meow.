@@ -61,10 +61,6 @@ jobs:
           find build_files/build_environment/cmake -name "*.cmake" -type f -exec sed -i -E \
             -e 's|\$\{SOURCE_DIR\}/configure |\$\{SOURCE_DIR\}/configure --build=aarch64-unknown-linux-gnu |g' \
             -e 's|\./configure |\./configure --build=aarch64-unknown-linux-gnu |g' \
-            -e 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/clang|-DCMAKE_C_COMPILER=clang|g' \
-            -e 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/clang++|-DCMAKE_CXX_COMPILER=clang++|g' \
-            -e 's|-DCMAKE_C_COMPILER=.*dpcpp/bin/icx|-DCMAKE_C_COMPILER=clang|g' \
-            -e 's|-DCMAKE_CXX_COMPILER=.*dpcpp/bin/icpx|-DCMAKE_CXX_COMPILER=clang++|g' \
             -e 's/-DEMBREE_SYCL_SUPPORT=ON/-DEMBREE_SYCL_SUPPORT=OFF/g' \
             -e 's/-DOIDN_DEVICE_SYCL=ON/-DOIDN_DEVICE_SYCL=OFF/g' \
             -e 's/-DOIDN_DEVICE_HIP=ON/-DOIDN_DEVICE_HIP=OFF/g' \
