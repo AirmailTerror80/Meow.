@@ -164,23 +164,32 @@ jobs:
           
           export PATH="/usr/lib/ccache:$PATH"
           export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
-          
-          export C_INCLUDE_PATH="$ARCH_LIBDIR/openimageio/include:$ARCH_LIBDIR/nanovdb/include:$C_INCLUDE_PATH"
-          export CPLUS_INCLUDE_PATH="$ARCH_LIBDIR/openimageio/include:$ARCH_LIBDIR/nanovdb/include:$CPLUS_INCLUDE_PATH"
 
+          export OIIO_1="${{ github.workspace }}/lib/linux_aarch64/openimageio/include"
+          export OIIO_2="${{ github.workspace }}/build_deps/Release/openimageio/include"
+          
+          export CPLUS_INCLUDE_PATH="$OIIO_1:$OIIO_2:$CPLUS_INCLUDE_PATH"
+          export C_INCLUDE_PATH="$OIIO_1:$OIIO_2:$C_INCLUDE_PATH"
+          
           export CXXFLAGS="-Wno-missing-include-dirs -fpermissive -fPIC"
           export CFLAGS="-Wno-missing-include-dirs -fPIC"
           export LDFLAGS="-fuse-ld=lld -Wl,--allow-multiple-definition -Wl,--undefined-version"
-          
+
+          cat << EOF >> ../blender/build_files/cmake/platform/platform_unix.cmake
+                    
           cmake ../blender \
+            -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_BUILD_TYPE=Release \
             -DLIBDIR=$ARCH_LIBDIR \
+            -DCMAKE_PREFIX_PATH=$ARCH_LIBDIR \
+            -DPYTHON_VERSION=3.11 \
+            -DPYTHON_ROOT_DIR=$ARCH_LIBDIR/python \
+            -DWITH_INSTALL_PORTABLE=ON \
+            -DWITH_CYCLES=ON \
             -DWITH_CYCLES_DEVICE_CUDA=OFF \
             -DWITH_CYCLES_DEVICE_OPTIX=OFF \
             -DWITH_CYCLES_DEVICE_HIP=OFF \
-            -DWITH_CYCLES_DEVICE_ONEAPI=OFF \
             -DWITH_CYCLES_DEVICE_SYCL=OFF
             
           make -j$(nproc)
