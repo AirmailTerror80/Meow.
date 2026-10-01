@@ -131,15 +131,20 @@ jobs:
           
           cat << 'EOF' > bin/clang
           #!/bin/bash
-          exec /usr/bin/clang -Qunused-arguments -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -Wno-unknown-warning-option "$@"
+          exec /usr/bin/clang -Qunused-arguments "$@" -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -Wno-unknown-warning-option
           EOF
           chmod +x bin/clang
 
           cat << 'EOF' > bin/clang++
           #!/bin/bash
-          exec /usr/bin/clang++ -Qunused-arguments -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -fpermissive -Wno-unknown-warning-option "$@"
+          exec /usr/bin/clang++ -Qunused-arguments "$@" -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -fpermissive -Wno-unknown-warning-option
           EOF
           chmod +x bin/clang++
+          
+          ln -sf clang bin/cc
+          ln -sf clang bin/gcc
+          ln -sf clang++ bin/c++
+          ln -sf clang++ bin/g++
           
           export PATH="$(pwd)/bin:/usr/lib/ccache:$PATH"
           export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
