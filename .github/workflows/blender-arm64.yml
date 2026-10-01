@@ -1,0 +1,79 @@
+name: Build Blender Binary
+
+on:
+  workflow_dispatch:
+    
+jobs:
+  build-blender:
+    runs-on: ubuntu-24.04-arm
+    
+    steps:
+      - name: Install Host-side Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential git ccache ninja-build \
+            libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev \
+            libxxf86vm-dev libxfixes-dev libegl-dev wayland-protocols \
+            libwayland-dev libxkbcommon-dev libdbus-1-dev curl unzip
+        
+      - name: Checkout Blender
+        uses: actions/checkout@v4
+        with:
+          repository: blender/blender
+          path: blender
+          ref: blender-v4.2-release
+          
+      - name: Fetch Dependencies
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          repo: AirmailTerror80/Meow.
+          run_id: 36835994022
+          path: deps-cache/
+
+      - name: Unpack Deps
+        run: |
+          export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
+          mkdir -p $ARCH_LIBDIR
+          
+          mv deps-cache/*/* $ARCH_LIBDIR/ || true
+          
+          ls -lha $ARCH_LIBDIR/ 
+          
+      - name: Build Blender
+        run: |
+          export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
+          mkdir -p build_blender && cd build_blender
+
+          export PATH="/usr/lib/ccache:$PATH"
+
+          export C_INCLUDE_PATH="$ARCH_LIBDIR/openimageio/include:$ARCH_LIBDIR/nanovdb/include:$C_INCLUDE_PATH"
+          export CPLUS_INCLUDE_PATH="$ARCH_LIBDIR/openimageio/include:$ARCH_LIBDIR/nanovdb/include:$CPLUS_INCLUDE_PATH"
+          
+          export CFLAGS="$CFLAGS -Wno-missing-include-dirs"
+          export CXXFLAGS="$CXXFLAGS -Wno-missing-include-dirs"
+
+          cmake ../blender \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DLIBDIR=$ARCH_LIBDIR \
+            -DCMAKE_PREFIX_PATH=$ARCH_LIBDIR \
+            -DPYTHON_VERSION=3.11 \
+            -DPYTHON_ROOT_DIR=$ARCH_LIBDIR/python \
+            -DWITH_INSTALL_PORTABLE=ON \
+            -DWITH_CYCLES=ON \
+            -DWITH_CYCLES_DEVICE_CUDA=OFF \
+            -DWITH_CYCLES_DEVICE_OPTIX=OFF \
+            -DWITH_CYCLES_DEVICE_HIP=OFF \
+            -DWITH_CYCLES_DEVICE_SYCL=OFF
+
+          make -j(nproc)
+          ninja install
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Blender-Linux-aarch64
+          path: build_blender/bin/
+          if-no-files-found: error
