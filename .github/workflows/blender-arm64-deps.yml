@@ -70,6 +70,9 @@ jobs:
             -e 's/-DOIDN_DEVICE_HIP=ON/-DOIDN_DEVICE_HIP=OFF/g' \
             -e 's/-DOIDN_DEVICE_CUDA=ON/-DOIDN_DEVICE_CUDA=OFF/g' \
             {} +
+            
+          f="build_files/build_environment/cmake/flex.cmake"
+          [ -f "$f" ] && sed -i 's/--build=aarch64-unknown-linux-gnu/--build=aarch64-unknown-linux-gnu --disable-shared ac_cv_func_reallocarray=yes/g' "$f" || true
           
           f="build_files/build_environment/cmake/ispc.cmake"
           [ -f "$f" ] && sed -i '/CMAKE_ARGS/a\    -DX86_ENABLED=OFF\n    -DWEBASSEMBLY_ENABLED=OFF' "$f" || true
@@ -98,7 +101,7 @@ jobs:
       - name: Fetch CCache
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-aarch64-blender-4.2
+          key: ${{ runner.os }}-aarch64-blender-4.2-
           restore-keys: ccache-Linux-aarch64-blender-4.2
           max-size: 4G
           create-symlink: true
