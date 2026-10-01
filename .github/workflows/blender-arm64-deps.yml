@@ -131,13 +131,13 @@ jobs:
           
           cat << 'EOF' > bin/clang
           #!/bin/bash
-          exec /usr/bin/clang -Qunused-arguments -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-unknown-warning-option "$@"
+          exec /usr/bin/clang -Qunused-arguments -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -Wno-unknown-warning-option "$@"
           EOF
           chmod +x bin/clang
 
           cat << 'EOF' > bin/clang++
           #!/bin/bash
-          exec /usr/bin/clang++ -Qunused-arguments -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -fpermissive -Wno-unknown-warning-option "$@"
+          exec /usr/bin/clang++ -Qunused-arguments -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -fpermissive -Wno-unknown-warning-option "$@"
           EOF
           chmod +x bin/clang++
           
@@ -153,8 +153,8 @@ jobs:
           export CCACHE_COMPILERCHECK=content
           export CCACHE_BASEDIR="${{ github.workspace }}"
           
-          export CXXFLAGS="-fPIC -Wno-changes-meaning -Wno-register -fpermissive -Wno-unknown-warning-option"
-          export CFLAGS="-fPIC -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-unknown-warning-option -Wno-error=implicit-function-declaration"
+          export CXXFLAGS="-fPIC -Wno-changes-meaning -Wno-register -Wno-cast-function-type-strict -Wno-cast-function-type -fpermissive -Wno-unknown-warning-option"
+          export CFLAGS="-fPIC -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-cast-function-type-strict -Wno-cast-function-type -Wno-unknown-warning-option -Wno-error=implicit-function-declaration"
           
           export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
