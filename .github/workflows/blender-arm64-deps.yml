@@ -72,7 +72,7 @@ jobs:
             {} +
             
           f="build_files/build_environment/cmake/flex.cmake"
-          [ -f "$f" ] && sed -i 's/--build=aarch64-unknown-linux-gnu/--build=aarch64-unknown-linux-gnu --disable-shared ac_cv_func_reallocarray=yes/g' "$f" || true
+          [ -f "$f" ] && sed -i 's/--build=aarch64-unknown-linux-gnu/--build=aarch64-unknown-linux-gnu ac_cv_func_reallocarray=yes/g' "$f" || true
           
           f="build_files/build_environment/cmake/ispc.cmake"
           [ -f "$f" ] && sed -i '/CMAKE_ARGS/a\    -DX86_ENABLED=OFF\n    -DWEBASSEMBLY_ENABLED=OFF' "$f" || true
@@ -97,14 +97,6 @@ jobs:
              tgt="build_files/build_environment/cmake/${intel_gpu_only}.cmake"
              [ -f "$tgt" ] && echo "add_custom_target(external_${intel_gpu_only})" > "$tgt" || true
           done
-
-      - name: Fetch CCache
-        uses: hendrikmuhs/ccache-action@v1.2.23
-        with:
-          key: ${{ runner.os }}-aarch64-blender-4.2-
-          restore-keys: ccache-Linux-aarch64-blender-4.2
-          max-size: 4G
-          create-symlink: true
 
       - name: Build Blender Dependencies
         run: |
@@ -150,14 +142,10 @@ jobs:
           
           export CC=clang
           export CXX=clang++
-          export AR=llvm-ar
-          export NM=llvm-nm
-          export RANLIB=llvm-ranlib
-          export STRIP=llvm-strip
-          export LD=lld
           
           export CXXFLAGS="-fPIC -Wno-changes-meaning -fpermissive -Wno-unknown-warning-option"
           export CFLAGS="-fPIC -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-unknown-warning-option -Wno-error=implicit-function-declaration"
+          
           export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
           cmake ../blender/build_files/build_environment \
