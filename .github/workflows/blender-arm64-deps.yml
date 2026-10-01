@@ -22,7 +22,6 @@ jobs:
           
           sudo apt-get update -qq
           
-          # Fully strict LLVM toolkit along with necessary multilib system resources for AARCH64 LLVM/CLANG overrides
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -yqq --no-install-recommends \
             build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint \
@@ -61,6 +60,10 @@ jobs:
           find build_files/build_environment/cmake -name "*.cmake" -type f -exec sed -i -E \
             -e 's|\$\{SOURCE_DIR\}/configure |\$\{SOURCE_DIR\}/configure --build=aarch64-unknown-linux-gnu |g' \
             -e 's|\./configure |\./configure --build=aarch64-unknown-linux-gnu |g' \
+            -e 's|-DCMAKE_C_COMPILER=[^[:space:]"]+/dpcpp/bin/clang|-DCMAKE_C_COMPILER=clang|g' \
+            -e 's|-DCMAKE_CXX_COMPILER=[^[:space:]"]+/dpcpp/bin/clang\+\+|-DCMAKE_CXX_COMPILER=clang++|g' \
+            -e 's|-DCMAKE_C_COMPILER=[^[:space:]"]+/dpcpp/bin/icx|-DCMAKE_C_COMPILER=clang|g' \
+            -e 's|-DCMAKE_CXX_COMPILER=[^[:space:]"]+/dpcpp/bin/icpx|-DCMAKE_CXX_COMPILER=clang++|g' \
             -e 's/-DEMBREE_SYCL_SUPPORT=ON/-DEMBREE_SYCL_SUPPORT=OFF/g' \
             -e 's/-DOIDN_DEVICE_SYCL=ON/-DOIDN_DEVICE_SYCL=OFF/g' \
             -e 's/-DOIDN_DEVICE_HIP=ON/-DOIDN_DEVICE_HIP=OFF/g' \
@@ -146,6 +149,9 @@ jobs:
           
           export CC=clang
           export CXX=clang++
+          
+          export CCACHE_COMPILERCHECK=content
+          export CCACHE_BASEDIR="${{ github.workspace }}"
           
           export CXXFLAGS="-fPIC -Wno-changes-meaning -Wno-register -fpermissive -Wno-unknown-warning-option"
           export CFLAGS="-fPIC -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-unknown-warning-option -Wno-error=implicit-function-declaration"
