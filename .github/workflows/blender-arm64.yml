@@ -105,6 +105,8 @@ jobs:
             -DWITH_CYCLES_DEVICE_ONEAPI=OFF \
             -DWITH_CYCLES_DEVICE_METAL=OFF
             
+          export LD_LIBRARY_PATH="$ARCH_LIBDIR/usd/lib:$LD_LIBRARY_PATH"
+          
           make -j$(nproc)
           make install
           
