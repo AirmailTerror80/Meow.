@@ -23,8 +23,13 @@ jobs:
           path: blender
           ref: blender-v4.2-release
           fetch-depth: 1
-          lfs: true
           submodules: true
+
+      - name: Fetch LFS from Official Blender Server
+        run: |
+          cd blender
+          git config lfs.url "https://projects.blender.org/blender/blender.git/info/lfs"
+          git lfs pull
           
       - name: Fetch Dependencies
         uses: dawidd6/action-download-artifact@v3
