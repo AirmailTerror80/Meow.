@@ -69,6 +69,8 @@ jobs:
           cmake ../blender \
             -DCMAKE_C_COMPILER=/usr/bin/clang \
             -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
+            -DCMAKE_C_FLAGS="-I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include" \
+            -DCMAKE_CXX_FLAGS="-I$ARCH_LIBDIR/imath/include -I$ARCH_LIBDIR/openexr/include -I$ARCH_LIBDIR/openimageio/include" \
             -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
             -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
             -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
@@ -78,8 +80,6 @@ jobs:
             -DLIBDIR="$ARCH_LIBDIR" \
             -DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH" \
             -DPYTHON_VERSION=3.11 \
-            -DPYTHON_ROOT_DIR="$ARCH_LIBDIR/python" \
-            -DFreetype_ROOT="$ARCH_LIBDIR/freetype" \
             -DFREETYPE_LIBRARY="$FREETYPE_STATIC_LIB" \
             -DFREETYPE_LIBRARY_RELEASE="$FREETYPE_STATIC_LIB" \
             -DWITH_INSTALL_PORTABLE=ON \
