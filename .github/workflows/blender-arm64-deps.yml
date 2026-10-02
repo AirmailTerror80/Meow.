@@ -186,5 +186,5 @@ jobs:
       - name: Upload Blender Dependencies Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: blender-4.2.23-aarch64-deps
+          name: blender-4.2-.aarch64-deps
           path: ${{ github.workspace }}/lib/linux_aarch64
