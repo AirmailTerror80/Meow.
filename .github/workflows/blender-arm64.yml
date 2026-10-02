@@ -54,19 +54,10 @@ jobs:
         run: |
           export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
           
-          USD_LIB="$ARCH_LIBDIR/usd/lib/libusd_ms.so"
-          if [ ! -f "$USD_LIB" ]; then
-              USD_LIB="$ARCH_LIBDIR/usd/lib/libusd_m.a"
-          fi
-         
-          sed -i '/--- endme ---/,$d' blender/source/creator/CMakeLists.txt
-          
-          cat <<EOF >> blender/source/creator/CMakeLists.txt
-          # --- endme ---
-          target_link_options(blender PRIVATE "-fopenmp")
-          target_link_libraries(blender PRIVATE
-              -lomp
-              "$USD_LIB"
+          cat <<EOF > blender/deps.cmake
+          add_link_options("-fopenmp")
+          link_libraries(
+              "$ARCH_LIBDIR/usd/lib/libusd_ms.so"
               "$ARCH_LIBDIR/aom/lib/libaom.a"
               "$ARCH_LIBDIR/x265/lib/libx265.a"
               "$ARCH_LIBDIR/x264/lib/libx264.a"
@@ -76,12 +67,14 @@ jobs:
           )
           EOF
           
+          sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/deps.cmake")' blender/CMakeLists.txt
+          
           mkdir -p build_blender && cd build_blender
           export PATH="/usr/lib/ccache:$PATH"
           
           export CPLUS_INCLUDE_PATH="$ARCH_LIBDIR/imath/include:$ARCH_LIBDIR/openexr/include:$ARCH_LIBDIR/openimageio/include"
           export C_INCLUDE_PATH="$ARCH_LIBDIR/imath/include:$ARCH_LIBDIR/openexr/include:$ARCH_LIBDIR/openimageio/include"
-          
+         
           find "$ARCH_LIBDIR" -name "*.pc" | while read -r pc_file; do
             PKG_DIR=$(dirname $(dirname $(dirname "$pc_file")))
             sed -i -E "s|^prefix=.*|prefix=$PKG_DIR|g" "$pc_file"
@@ -101,6 +94,7 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DLIBDIR="$ARCH_LIBDIR" \
             -DUSD_ROOT="$ARCH_LIBDIR/usd" \
+            -DWITH_USD=ON \
             -DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH" \
             -DPYTHON_VERSION=3.11 \
             -DPYTHON_ROOT_DIR="$ARCH_LIBDIR/python" \
@@ -125,7 +119,7 @@ jobs:
             
           make -j$(nproc)
           make install
-                
+            
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
