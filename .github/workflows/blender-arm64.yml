@@ -39,17 +39,6 @@ jobs:
           run_id: 36942719950
           path: deps-cache/
 
-      - name: Unpack Dependencies
-        run: |
-          export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
-          mkdir -p $ARCH_LIBDIR
-          
-          mv deps-cache/*/* $ARCH_LIBDIR/ || true
-          
-          find "$ARCH_LIBDIR" -type f \( -path "*/bin/*" -o -name "*.so*" -o -name "*.sh" \) -exec chmod +x {} +
-          
-          ls -lha $ARCH_LIBDIR/ 
-          
       - name: Build Blender
         run: |
           export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
@@ -72,9 +61,11 @@ jobs:
           mkdir -p build_blender && cd build_blender
           export PATH="/usr/lib/ccache:$PATH"
           
+          export LD_LIBRARY_PATH="$(find "$ARCH_LIBDIR" -type d -name 'lib' -exec printf '%s:' {} +)$LD_LIBRARY_PATH"
+          
           export CPLUS_INCLUDE_PATH="$ARCH_LIBDIR/imath/include:$ARCH_LIBDIR/openexr/include:$ARCH_LIBDIR/openimageio/include"
           export C_INCLUDE_PATH="$ARCH_LIBDIR/imath/include:$ARCH_LIBDIR/openexr/include:$ARCH_LIBDIR/openimageio/include"
-         
+          
           find "$ARCH_LIBDIR" -name "*.pc" | while read -r pc_file; do
             PKG_DIR=$(dirname $(dirname $(dirname "$pc_file")))
             sed -i -E "s|^prefix=.*|prefix=$PKG_DIR|g" "$pc_file"
