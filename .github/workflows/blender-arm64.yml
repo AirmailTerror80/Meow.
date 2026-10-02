@@ -25,7 +25,7 @@ jobs:
           fetch-depth: 1
           submodules: true
 
-      - name: Fetch LFS from Official Blender Server
+      - name: Fetch LFS
         run: |
           cd blender
           git config lfs.url "https://projects.blender.org/blender/blender.git/info/lfs"
@@ -59,6 +59,8 @@ jobs:
           export PKG_CONFIG_PATH="$(find "$ARCH_LIBDIR" -type d -name 'pkgconfig' -exec printf '%s:' {} +)$PKG_CONFIG_PATH"
           export CMAKE_PREFIX_PATH="$ARCH_LIBDIR;$(find "$ARCH_LIBDIR" -mindepth 1 -maxdepth 1 -type d -exec printf '%s;' {} +)"
           
+          FREETYPE_STATIC_LIB=$(find "$ARCH_LIBDIR/freetype" -name "libfreetype.a" -o -name "libfreetyped.a" | head -n 1)
+          
           cmake ../blender \
             -DCMAKE_C_COMPILER=/usr/bin/clang \
             -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
@@ -71,6 +73,7 @@ jobs:
             -DLIBDIR="$ARCH_LIBDIR" \
             -DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH" \
             -DPYTHON_VERSION=3.11 \
+            -DFREETYPE_LIBRARY="$FREETYPE_STATIC_LIB" \
             -DWITH_INSTALL_PORTABLE=ON \
             -DWITH_CYCLES=ON \
             -DWITH_CYCLES_DEVICE_CUDA=OFF \
@@ -86,6 +89,6 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Blender-Linux-aarch64
+          name: blender-4.2-aarch64-binary
           path: build_blender/bin/
           if-no-files-found: error
