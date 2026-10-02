@@ -43,29 +43,46 @@ jobs:
         run: |
           export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
           
-          git -C blender checkout -- CMakeLists.txt || true
-          
-          cat <<EOF >> blender/CMakeLists.txt
-          
-          if(TARGET blender)
-              target_link_options(blender PRIVATE "-fopenmp")
-              target_link_libraries(blender PRIVATE
-                  "-fopenmp"
-                  "$ARCH_LIBDIR/usd/lib/libusd_ms.so"
-                  "$ARCH_LIBDIR/aom/lib/libaom.a"
-                  "$ARCH_LIBDIR/x265/lib/libx265.a"
-                  "$ARCH_LIBDIR/x264/lib/libx264.a"
-                  "$ARCH_LIBDIR/vpx/lib/libvpx.a"
-                  "$ARCH_LIBDIR/tiff/lib/libtiff.a"
-                  "$ARCH_LIBDIR/deflate/lib/libdeflate.a"
-              )
-          endif()
+          WRAPPER_CXX="$(pwd)/cxx_wrapper.sh"
+          cat << EOF > "$WRAPPER_CXX"
+          #!/bin/bash
+          if [[ "\$*" == *"-o "*bin/blender* ]]; then
+              echo "blender linking"
+              
+              exec clang++ "\$@" -fopenmp -lomp \
+                "$ARCH_LIBDIR/usd/lib/libusd_ms.so" \
+                "$ARCH_LIBDIR/aom/lib/libaom.a" \
+                "$ARCH_LIBDIR/x265/lib/libx265.a" \
+                "$ARCH_LIBDIR/x264/lib/libx264.a" \
+                "$ARCH_LIBDIR/vpx/lib/libvpx.a" \
+                "$ARCH_LIBDIR/tiff/lib/libtiff.a" \
+                "$ARCH_LIBDIR/deflate/lib/libdeflate.a"
+          else
+              exec clang++ "\$@"
+          fi
           EOF
+          chmod +x "$WRAPPER_CXX"
+         
+          WRAPPER_C="$(pwd)/c_wrapper.sh"
+          cat << EOF > "$WRAPPER_C"
+          #!/bin/bash
+          if [[ "\$*" == *"-o "*bin/blender* ]]; then
+              exec clang "\$@" -fopenmp -lomp \
+                "$ARCH_LIBDIR/usd/lib/libusd_ms.so" \
+                "$ARCH_LIBDIR/aom/lib/libaom.a" \
+                "$ARCH_LIBDIR/x265/lib/libx265.a" \
+                "$ARCH_LIBDIR/x264/lib/libx264.a" \
+                "$ARCH_LIBDIR/vpx/lib/libvpx.a" \
+                "$ARCH_LIBDIR/tiff/lib/libtiff.a" \
+                "$ARCH_LIBDIR/deflate/lib/libdeflate.a"
+          else
+              exec clang "\$@"
+          fi
+          EOF
+          chmod +x "$WRAPPER_C"
           
           mkdir -p build_blender && cd build_blender
           export PATH="/usr/lib/ccache:$PATH"
-          
-          export LD_LIBRARY_PATH="$(find "$ARCH_LIBDIR" -type d -name 'lib' -exec printf '%s:' {} +)$LD_LIBRARY_PATH"
           
           export CPLUS_INCLUDE_PATH="$ARCH_LIBDIR/imath/include:$ARCH_LIBDIR/openexr/include:$ARCH_LIBDIR/openimageio/include"
           export C_INCLUDE_PATH="$ARCH_LIBDIR/imath/include:$ARCH_LIBDIR/openexr/include:$ARCH_LIBDIR/openimageio/include"
@@ -79,14 +96,12 @@ jobs:
           export CMAKE_PREFIX_PATH="$ARCH_LIBDIR;$(find "$ARCH_LIBDIR" -mindepth 1 -maxdepth 1 -type d -exec printf '%s;' {} +)"
           
           cmake ../blender \
-            -DCMAKE_C_COMPILER=/usr/bin/clang \
-            -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
+            -DCMAKE_C_COMPILER="$WRAPPER_C" \
+            -DCMAKE_CXX_COMPILER="$WRAPPER_CXX" \
             -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
             -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
             -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DLIBDIR="$ARCH_LIBDIR" \
             -DUSD_ROOT="$ARCH_LIBDIR/usd" \
             -DWITH_USD=ON \
