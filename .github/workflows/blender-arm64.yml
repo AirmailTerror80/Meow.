@@ -46,6 +46,8 @@ jobs:
           
           mv deps-cache/*/* $ARCH_LIBDIR/ || true
           
+          find "$ARCH_LIBDIR" -type f \( -path "*/bin/*" -o -name "*.so*" -o -name "*.sh" \) -exec chmod +x {} +
+          
           ls -lha $ARCH_LIBDIR/ 
 
       - name: Build Blender
