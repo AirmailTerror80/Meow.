@@ -69,12 +69,16 @@ jobs:
           
           FREETYPE_STATIC_LIB="$ARCH_LIBDIR/freetype/lib/libfreetype2ST.a"
           
+          EXTRA_LIBS="-fopenmp $ARCH_LIBDIR/x265/lib/libx265.a $ARCH_LIBDIR/x264/lib/libx264.a $ARCH_LIBDIR/aom/lib/libaom.a $ARCH_LIBDIR/vpx/lib/libvpx.a $ARCH_LIBDIR/tiff/lib/libtiff.a $ARCH_LIBDIR/deflate/lib/libdeflate.a"
+          
           cmake ../blender \
             -DCMAKE_C_COMPILER=/usr/bin/clang \
             -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
             -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
             -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
             -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
+            -DCMAKE_CXX_STANDARD_LIBRARIES="$EXTRA_LIBS" \
+            -DCMAKE_C_STANDARD_LIBRARIES="$EXTRA_LIBS" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -88,7 +92,11 @@ jobs:
             -DOPENEXR_INCLUDE_DIR="$ARCH_LIBDIR/openexr/include" \
             -DIMATH_INCLUDE_DIR="$ARCH_LIBDIR/imath/include" \
             -DOPENIMAGEIO_INCLUDE_DIR="$ARCH_LIBDIR/openimageio/include" \
+            -DWITH_PULSEAUDIO=ON \
             -DWITH_INSTALL_PORTABLE=ON \
+            -DWITH_GHOST_WAYLAND=ON \
+            -DWITH_VULKAN_BACKEND=ON \
+            -DWITH_PYTHON_INSTALL=ON \
             -DWITH_CYCLES=ON \
             -DWITH_CYCLES_DEVICE_CUDA=OFF \
             -DWITH_CYCLES_DEVICE_OPTIX=OFF \
