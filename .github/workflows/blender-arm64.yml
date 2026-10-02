@@ -11,7 +11,8 @@ jobs:
       - name: Install Host-side Packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential git ccache \
+          # Added clang and lld to the install list
+          sudo apt-get install -y cmake build-essential git ccache clang lld \
             libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev \
             libxxf86vm-dev libxfixes-dev libegl-dev wayland-protocols \
             libwayland-dev libxkbcommon-dev libdbus-1-dev curl unzip
@@ -22,6 +23,7 @@ jobs:
           repository: blender/blender
           path: blender
           ref: blender-v4.2-release
+          depth: 1
           
       - name: Fetch Dependencies
         uses: dawidd6/action-download-artifact@v3
@@ -45,30 +47,27 @@ jobs:
           export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
           mkdir -p build_blender && cd build_blender
           export PATH="/usr/lib/ccache:$PATH"
-          
-          export C_INCLUDE_PATH="$ARCH_LIBDIR/openimageio/include:$C_INCLUDE_PATH"
-          export CPLUS_INCLUDE_PATH="$ARCH_LIBDIR/openimageio/include:$CPLUS_INCLUDE_PATH"
-          
-          export CFLAGS="$CFLAGS -Wno-missing-include-dirs"
-          export CXXFLAGS="$CXXFLAGS -Wno-missing-include-dirs"
-          
-          FREETYPE_STATIC_LIB=$(find "$ARCH_LIBDIR/freetype" -name "libfreetype.a" -o -name "libfreetyped.a" | head -n 1)
-
+                    
           cmake ../blender \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld" \
+            -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DLIBDIR=$ARCH_LIBDIR \
             -DCMAKE_PREFIX_PATH=$ARCH_LIBDIR \
             -DPYTHON_VERSION=3.11 \
-            -DPYTHON_ROOT_DIR=$ARCH_LIBDIR/python \
-            -DFREETYPE_LIBRARY="$FREETYPE_STATIC_LIB" \
             -DWITH_INSTALL_PORTABLE=ON \
             -DWITH_CYCLES=ON \
             -DWITH_CYCLES_DEVICE_CUDA=OFF \
             -DWITH_CYCLES_DEVICE_OPTIX=OFF \
             -DWITH_CYCLES_DEVICE_HIP=OFF \
-            -DWITH_CYCLES_DEVICE_SYCL=OFF
+            -DWITH_CYCLES_DEVICE_SYCL=OFF \
+            -DWITH_CYCLES_DEVICE_ONEAPI=OFF \
+            -DWITH_CYCLES_DEVICE_METAL=OFF
             
           make -j$(nproc)
           make install
