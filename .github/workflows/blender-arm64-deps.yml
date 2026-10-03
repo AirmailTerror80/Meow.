@@ -133,9 +133,9 @@ jobs:
           chmod +x $(pwd)/bin/clang++
           
           ln -sf $(pwd)/bin/clang $(pwd)/bin/cc
-          ln -sf $(pwd)/clang $(pwd)/bin/gcc
-          ln -sf $(pwd)/clang++ $(pwd)/bin/c++
-          ln -sf $(pwd)/clang++ $(pwd)/bin/g++
+          ln -sf $(pwd)/bin/clang $(pwd)/bin/gcc
+          ln -sf $(pwd)/bin/clang++ $(pwd)/bin/c++
+          ln -sf $(pwd)/bin/clang++ $(pwd)/bin/g++
           
           export PATH="$(pwd)/bin:/usr/lib/ccache:$PATH"
           
