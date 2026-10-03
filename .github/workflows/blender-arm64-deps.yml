@@ -73,9 +73,11 @@ jobs:
           
           f="build_files/build_environment/cmake/gmp.cmake"
           [ -f "$f" ] && sed -i 's/--disable-assembly/--disable-assembly --disable-fat/g' "$f" || true
+          
+          f="build_files/build_environment/cmake/gmmlib.cmake"
+          [ -f "$f" ] && sed -i '/CMAKE_ARGS/a\    -DRUN_TEST_SUITE=OFF\n    -DRUN_ULT=OFF' "$f" || true
                     
           opt="build_files/build_environment/cmake/options.cmake"
-          
           if [ -f "$opt" ]; then
              echo 'set(PLATFORM_CFLAGS "${PLATFORM_CFLAGS} -fPIC -Wno-unknown-warning-option -Wno-implicit-function-declaration -Wno-error=implicit-function-declaration -Wno-int-conversion -Wno-error=int-conversion -Wno-incompatible-function-pointer-types -Wno-error=incompatible-function-pointer-types -Wno-implicit-int -Wno-error=implicit-int")' >> "$opt"
              echo 'set(PLATFORM_CXXFLAGS "${PLATFORM_CXXFLAGS} -fPIC -fpermissive -Wno-unknown-warning-option -Wno-changes-meaning -Wno-error=changes-meaning -Wno-error=enum-constexpr-conversion")' >> "$opt"
