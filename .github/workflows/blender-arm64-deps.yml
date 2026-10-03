@@ -128,7 +128,7 @@ jobs:
           #!/bin/bash
           exec /usr/bin/clang++ -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -fpermissive -Wno-unknown-warning-option
           EOF
-          chmod + $(pwd)/bin/clang++
+          chmod +x $(pwd)/bin/clang++
           
           ln -sf $(pwd)/bin/clang $(pwd)/bin/cc
           ln -sf $(pwd)/clang $(pwd)/bin/gcc
