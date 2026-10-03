@@ -120,13 +120,13 @@ jobs:
           
           cat << 'EOF' > $(pwd)/bin/clang
           #!/bin/bash
-          exec /usr/lib/ccache /usr/bin/clang -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -Wno-unknown-warning-option
+          exec /usr/bin/clang -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -Wno-unknown-warning-option
           EOF
           chmod +x $(pwd)/bin/clang
 
           cat << 'EOF' > $(pwd)/bin/clang++
           #!/bin/bash
-          exec /usr/lib/ccache /usr/bin/clang++ -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -fpermissive -Wno-unknown-warning-option
+          exec /usr/bin/clang++ -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -fpermissive -Wno-unknown-warning-option
           EOF
           chmod + $(pwd)/bin/clang++
           
