@@ -152,6 +152,9 @@ jobs:
           export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
           mkdir -p build_deps && cd build_deps
+
+          export CC=clang
+          export CXX=clang++
                    
           cmake ../blender/build_files/build_environment \
             -DCMAKE_BUILD_TYPE=Release \
