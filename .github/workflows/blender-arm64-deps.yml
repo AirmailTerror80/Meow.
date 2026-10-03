@@ -20,7 +20,6 @@ jobs:
         run: |
           sudo dpkg --add-architecture armhf
           sudo apt-get update -qq
-          
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -yqq --no-install-recommends \
             build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint \
@@ -41,17 +40,15 @@ jobs:
       - name: Pre-load Missing Archives 
         run: |
           mkdir -p build_deps/packages
-          [[ ! -f "build_deps/packages/glu-9.0.1.tar.xz" ]] && curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
-          [[ ! -f "build_deps/packages/mesa-23.3.0.tar.xz" ]] && curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
-          [[ ! -f "build_deps/packages/gmp-6.2.1.tar.xz" ]] && curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
-          exit 0 
-
+          curl -L "https://archive.mesa3d.org/glu/glu-9.0.1.tar.xz" -o build_deps/packages/glu-9.0.1.tar.xz
+          curl -L "https://archive.mesa3d.org/mesa-23.3.0.tar.xz" -o build_deps/packages/mesa-23.3.0.tar.xz
+          curl -L "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz" -o build_deps/packages/gmp-6.2.1.tar.xz
+          
       - name: Target Compatibility Patches
         run: |
           cd blender
           
           find build_files/cmake -type f -name "*.cmake" -exec sed -i -E 's|-fuse-ld=gold|-fuse-ld=lld|g' {} +
-          
           find build_files/build_environment/cmake -name "*.cmake" -type f -exec sed -i -E \
             -e 's|\$\{SOURCE_DIR\}/configure |\$\{SOURCE_DIR\}/configure --build=aarch64-unknown-linux-gnu |g' \
             -e 's|\./configure |\./configure --build=aarch64-unknown-linux-gnu |g' \
@@ -93,7 +90,7 @@ jobs:
         with:
           key: ${{ runner.os }}-aarch64-blender-4.2-deps
           restore-keys: ccache-Linux-aarch64-blender-4.2-deps
-          max-size: 3G
+          max-size: 1G
           create-symlink: true
 
       - name: Build Blender Dependencies
@@ -152,17 +149,10 @@ jobs:
           ln -sf /usr/bin/ld.lld $(pwd)/bin/aarch64-linux-gnu-ld
           
           export PATH="$(pwd)/bin:/usr/lib/ccache:$PATH"
-          
-          mkdir -p build_deps && cd build_deps
-          
-          export CC=clang
-          export CXX=clang++
-          
-          export CXXFLAGS="-fPIC -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -Wno-changes-meaning -Wno-register -Wno-cast-function-type-strict -Wno-cast-function-type -fpermissive -Wno-unknown-warning-option"
-          export CFLAGS="-fPIC -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-cast-function-type-strict -Wno-cast-function-type -Wno-unknown-warning-option -Wno-error=implicit-function-declaration"
-          
           export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
+          mkdir -p build_deps && cd build_deps
+                   
           cmake ../blender/build_files/build_environment \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=clang \
@@ -180,3 +170,4 @@ jobs:
         with:
           name: blender-aarch64-deps-4.2
           path: ${{ github.workspace }}/build_deps/Release/*
+          if-no-files-found: error
