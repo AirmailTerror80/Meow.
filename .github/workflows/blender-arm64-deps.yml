@@ -25,7 +25,7 @@ jobs:
             build-essential cmake ccache git subversion curl xz-utils bzip2 patch \
             bison yasm tcl autoconf automake m4 meson python3-mako patchelf gettext autopoint \
             pkg-config ninja-build xutils-dev xsltproc xmlto python3-docutils \
-            clang llvm lld libomp-dev libwayland-dev wayland-protocols \
+            clang llvm lld libomp-dev libwayland-dev wayland-protocols  \
             libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libxkbcommon-dev libdbus-1-dev \
             linux-libc-dev libpulse-dev libasound2-dev libjack-dev libpipewire-0.3-dev \
@@ -34,7 +34,7 @@ jobs:
             libudev-dev libinput-dev libevdev-dev libmtdev-dev libseat-dev \
             libx11-xcb-dev libxcb-dri3-dev libxcb-present-dev libxrender-dev \
             libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxcb-xkb-dev libxcb-keysyms1-dev \
-            libsystemd-dev libpam0g-dev xwayland \
+            libsystemd-dev libpam0g-dev xwayland libcairo2-dev libpango1.0-dev \
             libxt-dev libsm-dev libice-dev libxaw7-dev libxpm-dev libxshmfence-dev \
             libc6-dev-armhf-cross linux-libc-dev-armhf-cross gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 
