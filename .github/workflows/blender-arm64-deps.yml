@@ -29,7 +29,7 @@ jobs:
             libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxinerama-dev libegl-dev libxkbcommon-dev libdbus-1-dev \
             linux-libc-dev libpulse-dev libasound2-dev libjack-dev libpipewire-0.3-dev \
-            libtool libtool-bin autotools-dev uuid-dev \
+            libtool libtool-bin autotools-dev uuid-dev libpixman-1-dev \
             libgles-dev libgl1-mesa-dev libgl-dev libdrm-dev libgbm-dev \
             libudev-dev libinput-dev libevdev-dev libmtdev-dev libseat-dev \
             libx11-xcb-dev libxcb-dri3-dev libxcb-present-dev libxrender-dev \
@@ -73,13 +73,7 @@ jobs:
           
           f="build_files/build_environment/cmake/gmp.cmake"
           [ -f "$f" ] && sed -i 's/--disable-assembly/--disable-assembly --disable-fat/g' "$f" || true
-          
-          f="build_files/build_environment/cmake/gmmlib.cmake"
-          [ -f "$f" ] && sed -i '/CMAKE_ARGS/a\    -DRUN_TEST_SUITE=OFF\n    -DRUN_ULT=OFF' "$f" || true
-          
-          sed -i 's/--prefix=/--build=aarch64-unknown-linux-gnu --prefix=/g' build_files/build_environment/cmake/theora.cmake || true
-          sed -i 's/--prefix=/--build=aarch64-unknown-linux-gnu --prefix=/g' build_files/build_environment/cmake/vorbis.cmake || true
-          
+                    
           opt="build_files/build_environment/cmake/options.cmake"
           
           if [ -f "$opt" ]; then
@@ -102,9 +96,9 @@ jobs:
 
       - name: Build Blender Dependencies
         run: |
-          mkdir -p bin
+          mkdir -p $(pwd)/bin
           
-          cat << 'EOF' > bin/wrapper-stub.sh
+          cat << 'EOF' > $(pwd)/bin/wrapper-stub.sh
           #!/bin/bash
           if [[ "$PWD" == *"sqlite"* ]] || [[ "$PWD" == *"glu"* ]] || [[ "$PWD" == *"libglu"* ]]; then
               exit 0
@@ -118,40 +112,35 @@ jobs:
               fi
           fi
           EOF
-          chmod +x bin/wrapper-stub.sh
+          chmod +x $(pwd)/bin/wrapper-stub.sh
           
           for cmd in aclocal autoconf automake autoheader libtoolize autoreconf automake-1.15 aclocal-1.15 automake-1.16 aclocal-1.16 autom4te; do
             ln -sf wrapper-stub.sh "bin/$cmd"
           done
           
-          cat << 'EOF' > bin/clang
+          cat << 'EOF' > $(pwd)/bin/clang
           #!/bin/bash
-          exec /usr/bin/clang -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -Wno-unknown-warning-option
+          exec /usr/lib/ccache /usr/bin/clang -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -Wno-unknown-warning-option
           EOF
-          chmod +x bin/clang
+          chmod +x $(pwd)/bin/clang
 
-          cat << 'EOF' > bin/clang++
+          cat << 'EOF' > $(pwd)/bin/clang++
           #!/bin/bash
-          exec /usr/bin/clang++ -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -fpermissive -Wno-unknown-warning-option
+          exec /usr/lib/ccache /usr/bin/clang++ -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -fpermissive -Wno-unknown-warning-option
           EOF
-          chmod +x bin/clang++
+          chmod + $(pwd)/bin/clang++
           
-          ln -sf clang bin/cc
-          ln -sf clang bin/gcc
-          ln -sf clang++ bin/c++
-          ln -sf clang++ bin/g++
+          ln -sf $(pwd)/bin/clang $(pwd)/bin/cc
+          ln -sf $(pwd)/clang $(pwd)/bin/gcc
+          ln -sf $(pwd)/clang++ $(pwd)/bin/c++
+          ln -sf $(pwd)/clang++ $(pwd)/bin/g++
           
           export PATH="$(pwd)/bin:/usr/lib/ccache:$PATH"
-          export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
           
           mkdir -p build_deps && cd build_deps
-          mkdir -p "$ARCH_LIBDIR"
           
           export CC=clang
           export CXX=clang++
-          
-          export CCACHE_COMPILERCHECK=content
-          export CCACHE_BASEDIR="${{ github.workspace }}"
           
           export CXXFLAGS="-fPIC -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -Wno-changes-meaning -Wno-register -Wno-cast-function-type-strict -Wno-cast-function-type -fpermissive -Wno-unknown-warning-option"
           export CFLAGS="-fPIC -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-cast-function-type-strict -Wno-cast-function-type -Wno-unknown-warning-option -Wno-error=implicit-function-declaration"
@@ -159,9 +148,6 @@ jobs:
           export ISPC_EXTRA_ARGS="--target=neon --arch=aarch64"
           
           cmake ../blender/build_files/build_environment \
-            -DHARVEST_TARGET="$ARCH_LIBDIR" \
-            -DCMAKE_INSTALL_PREFIX="$ARCH_LIBDIR" \
-            -DBUILD_DIR="$ARCH_LIBDIR" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
@@ -174,12 +160,8 @@ jobs:
             
           make -j$(nproc)
           
-          if [ -d "Release" ] && [ "$(ls -A Release 2>/dev/null)" ]; then
-             cp -ra Release/* "$ARCH_LIBDIR/" || true
-          fi
-
       - name: Upload Blender Dependencies Artifact
         uses: actions/upload-artifact@v4
         with:
           name: blender-4.2-aarch64-deps
-          path: ${{ github.workspace }}/lib/linux_aarch64
+          path: ${{ github.workspace }}/build_deps/Release
