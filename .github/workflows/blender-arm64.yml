@@ -30,118 +30,93 @@ jobs:
           cd blender
           git config lfs.url "https://projects.blender.org/blender/blender.git/info/lfs"
           git lfs pull
-          
+
       - name: Fetch Dependencies
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           repo: AirmailTerror80/Meow.
-          run_id: 36942719950
-          path: deps-cache/
+          run_id: 37148520937
+          path: ${{ github.workspace }}/build_deps/Release
 
       - name: Unpack Dependencies
         run: |
-          export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
-          mkdir -p $ARCH_LIBDIR
-          
-          mv deps-cache/*/* $ARCH_LIBDIR/ || true
-          
-          find "$ARCH_LIBDIR" -type f \( -path "*/bin/*" -o -name "*.so*" -o -name "*.sh" \) -exec chmod +x {} +
-          
-          ls -lha $ARCH_LIBDIR/ 
+          export LIBDIR="${{ github.workspace }}/build_deps/Release"
+          find "$LIBDIR" -type f \( -path "*/bin/*" -o -name "*.so*" -o -name "*.sh" \) -exec chmod +x {} +
+          ls -lha "$LIBDIR"
+
+      - name: Fetch CCache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: ${{ runner.os }}-aarch64-blender-4.2-bin
+          restore-keys: ccache-Linux-aarch64-blender-4.2-bin
+          max-size: 2G
+          create-symlink: true
 
       - name: Build Blender
         run: |
-          export ARCH_LIBDIR="${{ github.workspace }}/lib/linux_aarch64"
+          export LIBDIR="${{ github.workspace }}/build_deps/Release"
           
-          WRAPPER_CXX="$(pwd)/cxx_wrapper.sh"
-          cat << EOF > "$WRAPPER_CXX"
+          mkdir -p $(pwd)/bin
+          
+          cat << 'EOF' > $(pwd)/bin/clang
           #!/bin/bash
-          COMPILER=\$1
-          shift
-          if [[ "\$*" == *"-o "*bin/blender* ]]; then
-              echo "blender link"
-              
-              exec "\$COMPILER" "\$@" -fopenmp -lomp \\
-                "$ARCH_LIBDIR/usd/lib/libusd_ms.so" \\
-                "$ARCH_LIBDIR/aom/lib/libaom.a" \\
-                "$ARCH_LIBDIR/x265/lib/libx265.a" \\
-                "$ARCH_LIBDIR/x264/lib/libx264.a" \\
-                "$ARCH_LIBDIR/vpx/lib/libvpx.a" \\
-                "$ARCH_LIBDIR/tiff/lib/libtiff.a" \\
-                "$ARCH_LIBDIR/deflate/lib/libdeflate.a"
-          else
-              exec ccache "\$COMPILER" "\$@"
-          fi
+          exec ccache /usr/bin/clang "$@"
           EOF
-          chmod +x "$WRAPPER_CXX"
-         
-          WRAPPER_C="$(pwd)/c_wrapper.sh"
-          cat << EOF > "$WRAPPER_C"
+          chmod +x $(pwd)/bin/clang
+          
+          cat << 'EOF' > $(pwd)/bin/clang++
           #!/bin/bash
-          COMPILER=\$1
-          shift
-          if [[ "\$*" == *"-o "*bin/blender* ]]; then
-              exec "\$COMPILER" "\$@" -fopenmp -lomp \\
-                "$ARCH_LIBDIR/usd/lib/libusd_ms.so" \\
-                "$ARCH_LIBDIR/aom/lib/libaom.a" \\
-                "$ARCH_LIBDIR/x265/lib/libx265.a" \\
-                "$ARCH_LIBDIR/x264/lib/libx264.a" \\
-                "$ARCH_LIBDIR/vpx/lib/libvpx.a" \\
-                "$ARCH_LIBDIR/tiff/lib/libtiff.a" \\
-                "$ARCH_LIBDIR/deflate/lib/libdeflate.a"
-          else
-              exec ccache "\$COMPILER" "\$@"
-          fi
+          exec ccache /usr/bin/clang++ "$@"
           EOF
-          chmod +x "$WRAPPER_C"
+          chmod +x $(pwd)/bin/clang++
+
+          ln -sf $(pwd)/bin/clang $(pwd)/bin/cc
+          ln -sf $(pwd)/bin/clang $(pwd)/bin/gcc
+          ln -sf $(pwd)/bin/clang++ $(pwd)/bin/c++
+          ln -sf $(pwd)/bin/clang++ $(pwd)/bin/g++
           
-          mkdir -p build_blender && cd build_blender
+          ln -sf $(pwd)/bin/clang $(pwd)/bin/aarch64-linux-gnu-gcc
+          ln -sf $(pwd)/bin/clang $(pwd)/bin/aarch64-linux-gnu-cc
+          ln -sf $(pwd)/bin/clang++ $(pwd)/bin/aarch64-linux-gnu-g++
+          ln -sf $(pwd)/bin/clang++ $(pwd)/bin/aarch64-linux-gnu-c++
           
-          export CPLUS_INCLUDE_PATH="$ARCH_LIBDIR/imath/include:$ARCH_LIBDIR/openexr/include:$ARCH_LIBDIR/openimageio/include"
-          export C_INCLUDE_PATH="$ARCH_LIBDIR/imath/include:$ARCH_LIBDIR/openexr/include:$ARCH_LIBDIR/openimageio/include"
-          
-          find "$ARCH_LIBDIR" -name "*.pc" | while read -r pc_file; do
-            PKG_DIR=$(dirname $(dirname $(dirname "$pc_file")))
-            sed -i -E "s|^prefix=.*|prefix=$PKG_DIR|g" "$pc_file"
+          for tool in ar ranlib nm strip objcopy objdump readelf size strings; do
+            ln -sf "/usr/bin/llvm-$tool" "$(pwd)/bin/$tool"
+            ln -sf "/usr/bin/llvm-$tool" "$(pwd)/bin/aarch64-linux-gnu-$tool"
           done
           
-          export PKG_CONFIG_PATH="$(find "$ARCH_LIBDIR" -type d -name 'pkgconfig' -exec printf '%s:' {} +)$PKG_CONFIG_PATH"
-          export CMAKE_PREFIX_PATH="$ARCH_LIBDIR;$(find "$ARCH_LIBDIR" -mindepth 1 -maxdepth 1 -type d -exec printf '%s;' {} +)"
+          ln -sf /usr/bin/ld.lld $(pwd)/bin/ld
+          ln -sf /usr/bin/ld.lld $(pwd)/bin/aarch64-linux-gnu-ld
           
+          export PATH="$(pwd)/bin:/usr/lib/ccache:$PATH"
+
+          
+          #export PKG_CONFIG_PATH="$(find "$LIBDIR" -type d -name 'pkgconfig' -exec printf '%s:' {} +)$PKG_CONFIG_PATH"
+          
+          #echo "target_link_libraries(blender PRIVATE -fopenmp \"$LIBDIR/x265/lib/libx265.a\" \"$LIBDIR/x264/lib/libx264.a\" \"$LIBDIR/aom/lib/libaom.a\" \"$LIBDIR/vpx/lib/libvpx.a\" \"$LIBDIR/tiff/lib/libtiff.a\" \"$LIBDIR/deflate/lib/libdeflate.a\")" >> blender/source/creator/CMakeLists.txt
+          
+          mkdir -p build_blender && cd build_blender
+                   
           cmake ../blender \
-            -DCMAKE_C_COMPILER=/usr/bin/clang \
-            -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
-            -DCMAKE_C_COMPILER_LAUNCHER="$WRAPPER_C" \
-            -DCMAKE_CXX_COMPILER_LAUNCHER="$WRAPPER_CXX" \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
             -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
             -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld -Wl,--undefined-version" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DLIBDIR="$ARCH_LIBDIR" \
-            -DUSD_ROOT="$ARCH_LIBDIR/usd" \
-            -DWITH_USD=ON \
-            -DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH" \
+            -DLIBDIR="$LIBDIR" \
             -DPYTHON_VERSION=3.11 \
-            -DPYTHON_ROOT_DIR="$ARCH_LIBDIR/python" \
-            -DFreetype_ROOT="$ARCH_LIBDIR/freetype" \
-            -DFREETYPE_LIBRARY="$ARCH_LIBDIR/freetype/lib/libfreetype2ST.a" \
-            -DFREETYPE_LIBRARY_RELEASE="$ARCH_LIBDIR/freetype/lib/libfreetype2ST.a" \
-            -DOPENEXR_INCLUDE_DIR="$ARCH_LIBDIR/openexr/include" \
-            -DIMATH_INCLUDE_DIR="$ARCH_LIBDIR/imath/include" \
-            -DOPENIMAGEIO_INCLUDE_DIR="$ARCH_LIBDIR/openimageio/include" \
-            -DWITH_PULSEAUDIO=ON \
             -DWITH_INSTALL_PORTABLE=ON \
-            -DWITH_GHOST_WAYLAND=ON \
-            -DWITH_VULKAN_BACKEND=ON \
-            -DWITH_PYTHON_INSTALL=ON \
             -DWITH_CYCLES=ON \
             -DWITH_CYCLES_DEVICE_CUDA=OFF \
             -DWITH_CYCLES_DEVICE_OPTIX=OFF \
             -DWITH_CYCLES_DEVICE_HIP=OFF \
             -DWITH_CYCLES_DEVICE_SYCL=OFF \
             -DWITH_CYCLES_DEVICE_ONEAPI=OFF \
-            -DWITH_CYCLES_DEVICE_METAL=OFF
+            -DWITH_CYCLES_DEVICE_METAL=OFF 
             
           make -j$(nproc)
           make install
