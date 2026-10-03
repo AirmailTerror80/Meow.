@@ -122,13 +122,13 @@ jobs:
           
           cat << 'EOF' > $(pwd)/bin/clang
           #!/bin/bash
-          exec /usr/bin/clang -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -Wno-unknown-warning-option
+          exec ccache /usr/bin/clang -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wunused-const-variable -Wformat-nonliteral -Wpointer-sign -Wextern-c-compat -Wreturn-type-c-linkage -Wtautological-constant-out-of-range-compare -Wbitwise-conditional-parentheses -Wstring-concatenation -Wself-assign -Wunused-private-field -Wunreachable-code -Wdeprecated-declarations -Wprofile-instr-unprofiled -Wshift-negative-value -Wimplicit-const-int-float-conversion -Wtautological-constant-out-of-range-compare -Wunneeded-internal-declaration -Wenum-conversion -Wundef -Wsometimes-uninitialized -Wuninitialized -Wunused-parameter -Wenum-compare-switch -Wmacro-redefined -Wdeprecated-non-prototype -Wbitwise-instead-of-logical -Wunused-variable -Wunused-but-set-variable -Wshadow -Wshift-negative-value -Wtautological-pointer-compare -Wabsolute-value -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -Wno-unknown-warning-option
           EOF
           chmod +x $(pwd)/bin/clang
 
           cat << 'EOF' > $(pwd)/bin/clang++
           #!/bin/bash
-          exec /usr/bin/clang++ -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -fpermissive -Wno-unknown-warning-option
+          exec ccache /usr/bin/clang++ -Qunused-arguments "$@" -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_WARNING -Wunused-const-variable -Wformat-nonliteral -Wpointer-sign -Wextern-c-compat -Wreturn-type-c-linkage -Wtautological-constant-out-of-range-compare -Wbitwise-conditional-parentheses -Wstring-concatenation -Wself-assign -Wunused-private-field -Wunreachable-code -Wdeprecated-declarations -Wprofile-instr-unprofiled -Wshift-negative-value -Wimplicit-const-int-float-conversion -Wtautological-constant-out-of-range-compare -Wunneeded-internal-declaration -Wenum-conversion -Wundef -Wsometimes-uninitialized -Wuninitialized -Wunused-parameter -Wenum-compare-switch  -Wmacro-redefined -Wdeprecated-non-prototype -Wbitwise-instead-of-logical -Wunused-variable -Wunused-but-set-variable -Wshadow -Wshift-negative-value -Wtautological-pointer-compare -Wabsolute-value -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-error=int-conversion -Wno-int-conversion -Wno-error=incompatible-function-pointer-types -Wno-incompatible-function-pointer-types -Wno-error=enum-constexpr-conversion -Wno-changes-meaning -Wno-register -Wno-error=register -Wno-cast-function-type -Wno-cast-function-type-strict -Wno-error=cast-function-type-strict -fpermissive -Wno-unknown-warning-option
           EOF
           chmod +x $(pwd)/bin/clang++
           
@@ -136,6 +136,20 @@ jobs:
           ln -sf $(pwd)/bin/clang $(pwd)/bin/gcc
           ln -sf $(pwd)/bin/clang++ $(pwd)/bin/c++
           ln -sf $(pwd)/bin/clang++ $(pwd)/bin/g++
+          
+          ln -sf $(pwd)/bin/clang $(pwd)/bin/aarch64-linux-gnu-gcc
+          ln -sf $(pwd)/bin/clang $(pwd)/bin/aarch64-linux-gnu-cc
+          ln -sf $(pwd)/bin/clang++ $(pwd)/bin/aarch64-linux-gnu-g++
+          ln -sf $(pwd)/bin/clang++ $(pwd)/bin/aarch64-linux-gnu-c++
+
+          for tool in ar ranlib nm strip objcopy objdump readelf size strings; do
+            ln -sf "/usr/bin/llvm-$tool" "$(pwd)/bin/$tool"
+            # Trap configure scripts looking for architecture-prefixed tools!
+            ln -sf "/usr/bin/llvm-$tool" "$(pwd)/bin/aarch64-linux-gnu-$tool"
+          done
+          
+          ln -sf /usr/bin/ld.lld $(pwd)/bin/ld
+          ln -sf /usr/bin/ld.lld $(pwd)/bin/aarch64-linux-gnu-ld
           
           export PATH="$(pwd)/bin:/usr/lib/ccache:$PATH"
           
